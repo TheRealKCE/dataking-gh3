@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { resolveProvider, SCOPE_PROVIDERS, PROVIDER_LABEL, type PaymentProvider } from '@/lib/payment-provider'
+import { resolveProvider, resolveProviderForScope, isMomoPromptProvider, SCOPE_PROVIDERS, PROVIDER_LABEL, type PaymentProvider } from '@/lib/payment-provider'
 import { NETWORK_ORDER, NetworkLogo, detectPayNetwork, type PayNetwork } from '@/lib/networks'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
@@ -304,9 +304,28 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
 
+    /**
+     * The gateway that will actually collect for a data purchase.
+     *
+     * Read from active_payment_provider_shop, NOT active_payment_provider_web, because
+     * /api/shop/initialize resolves the shop scope and ignores the `provider` the
+     * browser sends. Reading the web key here would let the sheet ask for a Mobile
+     * Money number that the real gateway never uses — or omit one it needs.
+     */
+    const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>(
+        () => resolveProviderForScope(adminSettings['active_payment_provider_shop'], 'shop')
+    )
+
+    /**
+     * Paystack redirects to its own hosted checkout, where the payer enters their
+     * details — so asking for them here is a dead end the buyer has to fill in twice.
+     * Every other gateway pushes an approval prompt and genuinely needs the number.
+     */
+    const needsMomoDetails = isMomoPromptProvider(shopPaymentProvider)
+
     useEffect(() => {
         // Bypass ISR cache to get the very latest toggle status
-        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden,active_payment_provider_web', { cache: 'no-store' })
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden,active_payment_provider_web,active_payment_provider_shop', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (data && typeof data.special_mtn_mashup_hidden !== 'undefined') {
@@ -320,6 +339,9 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }
                 if (data && data.active_payment_provider_web) {
                     setWebPaymentProvider(resolveProvider(data.active_payment_provider_web))
+                }
+                if (data && data.active_payment_provider_shop) {
+                    setShopPaymentProvider(resolveProviderForScope(data.active_payment_provider_shop, 'shop'))
                 }
             })
             .catch(() => {})
@@ -566,13 +588,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             return
         }
 
+        // Only demanded for prompt-based gateways. Under Paystack these fields are not
+        // even rendered, so validating them would block the sale on something the buyer
+        // was never shown — and the server defaults payer_phone to the beneficiary.
         const cleanPayPhone = effectivePayPhone
-        if (!cleanPayPhone) { toast.error('Enter the Mobile Money number to charge'); return }
-        if (!/^(0\d{9}|233\d{9})$/.test(cleanPayPhone)) {
-            toast.error('Invalid Mobile Money number. Use format: 0XXXXXXXXX')
-            return
+        if (needsMomoDetails) {
+            if (!cleanPayPhone) { toast.error('Enter the Mobile Money number to charge'); return }
+            if (!/^(0\d{9}|233\d{9})$/.test(cleanPayPhone)) {
+                toast.error('Invalid Mobile Money number. Use format: 0XXXXXXXXX')
+                return
+            }
+            if (!payNetwork) { toast.error('Select the Mobile Money network to pay from'); return }
         }
-        if (!payNetwork) { toast.error('Select the Mobile Money network to pay from'); return }
 
         setLoading(true)
         try {
@@ -583,8 +610,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     shopSlug: shop.shop_slug,
                     packageId: selectedPackage.id,
                     guestPhone: cleanPhone,
-                    payerPhone: cleanPayPhone,
-                    payerNetwork: payNetwork,
+                    ...(needsMomoDetails ? { payerPhone: cleanPayPhone, payerNetwork: payNetwork } : {}),
                     guestEmail: email.trim() || undefined,
                     provider: webPaymentProvider,
                 }),
@@ -2120,44 +2146,51 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     />
                                 </div>
 
-                                {/* Payer — typed on its own. Any number on any network may pay, so this
-                                    is never locked to the beneficiary's number. */}
-                                <div className="space-y-2">
-                                    <Label className={SHEET_LABEL_CLASS}>
-                                        Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
-                                    </Label>
-                                    <input
-                                        type="tel" inputMode="numeric"
-                                        value={payPhone}
-                                        onChange={(e) => setPayPhone(e.target.value)}
-                                        placeholder="0241234567"
-                                        className={SHEET_FIELD_CLASS}
-                                    />
-                                </div>
+                                {/* Payer details — only for gateways that push a prompt to a handset.
+                                    On Paystack the buyer enters all of this on Paystack's own
+                                    checkout page, so showing it here asks for the same details
+                                    twice and gives the second copy no effect. */}
+                                {needsMomoDetails && (
+                                    <>
+                                        {/* Payer — typed on its own. Any number on any network may pay, so this
+                                            is never locked to the beneficiary's number. */}
+                                        <div className="space-y-2">
+                                            <Label className={SHEET_LABEL_CLASS}>
+                                                Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
+                                            </Label>
+                                            <input
+                                                type="tel" inputMode="numeric"
+                                                value={payPhone}
+                                                onChange={(e) => setPayPhone(e.target.value)}
+                                                placeholder="0241234567"
+                                                className={SHEET_FIELD_CLASS}
+                                            />
+                                        </div>
 
-
-                                {/* Payment network */}
-                                <div className="space-y-2">
-                                    <Label className={SHEET_LABEL_CLASS}>Network</Label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {payNetworks.map(({ id, label, dot }) => (
-                                            <button
-                                                key={id}
-                                                type="button"
-                                                onClick={() => { setPayNetwork(id); setPayNetworkManual(true) }}
-                                                className={cn(
-                                                    'flex items-center justify-center gap-2 py-3 rounded-2xl border text-sm font-bold transition-all',
-                                                    payNetwork === id
-                                                        ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                                                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
-                                                )}
-                                            >
-                                                <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
-                                                {label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                        {/* Payment network */}
+                                        <div className="space-y-2">
+                                            <Label className={SHEET_LABEL_CLASS}>Network</Label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {payNetworks.map(({ id, label, dot }) => (
+                                                    <button
+                                                        key={id}
+                                                        type="button"
+                                                        onClick={() => { setPayNetwork(id); setPayNetworkManual(true) }}
+                                                        className={cn(
+                                                            'flex items-center justify-center gap-2 py-3 rounded-2xl border text-sm font-bold transition-all',
+                                                            payNetwork === id
+                                                                ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
+                                                        )}
+                                                    >
+                                                        <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
                                 {/* Email */}
                                 <div className="space-y-2">
@@ -2187,10 +2220,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 payer commits, then discovers the amount differs on their
                                 handset. It now sits above the CTA as a labelled line.
 
-                                We deliberately do NOT show a computed total. The fee percent
-                                lives in HUBTEL_FEE_PERCENT on the server and is never sent to
-                                the browser, so any total rendered here would be a guess — and
-                                a wrong number on a payment screen is worse than no number. */}
+                                We deliberately do NOT show a computed total. A storefront's fee
+                                depends on the shop's own gateway configuration, which this page
+                                does not carry, so any total rendered here would be a guess — and
+                                a wrong number on a payment screen is worse than no number. The
+                                real figure comes from the gateway: the handset prompt for the
+                                prompt-based providers, the checkout page for Paystack. */}
                             <div className="sticky bottom-0 border-t border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm px-5 pt-3 pb-4 safe-b space-y-3">
                                 <dl className="space-y-1.5">
                                     <div className="flex items-center justify-between text-sm">
@@ -2202,7 +2237,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     <div className="flex items-center justify-between text-sm">
                                         <dt className="font-semibold text-gray-500 dark:text-gray-400">Payment fee</dt>
                                         <dd className="font-semibold text-gray-500 dark:text-gray-400">
-                                            added by Mobile Money
+                                            {needsMomoDetails ? 'added by Mobile Money' : 'shown at checkout'}
                                         </dd>
                                     </div>
                                 </dl>
@@ -2213,11 +2248,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 >
                                     {loading
                                         ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for approval...' : 'Processing...'}</>
-                                        : <><Smartphone className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
+                                        : needsMomoDetails
+                                            ? <><Smartphone className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>
+                                            : <><Smartphone className="w-5 h-5" /> Proceed to payment</>}
                                 </button>
 
                                 <p className="text-[12px] text-center font-semibold text-gray-400 leading-snug">
-                                    Your phone will show the exact total to approve.
+                                    {needsMomoDetails
+                                        ? 'Your phone will show the exact total to approve.'
+                                        : 'You’ll choose how to pay and see the exact total on the next page.'}
                                 </p>
                             </div>
                         </div>

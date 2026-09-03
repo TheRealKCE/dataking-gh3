@@ -92,6 +92,10 @@ export default async function ShopPage({ params }: Props) {
             'airtime_min_amount',
             'airtime_max_amount',
             'special_mtn_mashup_hidden',
+            // The SHOP-scope provider, not the web one. /api/shop/initialize decides
+            // with this and ignores whatever the browser sends, so the checkout sheet
+            // has to read the same key or it will ask for details the gateway never uses.
+            'active_payment_provider_shop',
         ]) as any)
 
     const adminSettingsMap: Record<string, string> = {}
