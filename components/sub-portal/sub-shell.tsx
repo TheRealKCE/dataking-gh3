@@ -16,6 +16,7 @@ import { usePageAccess } from '@/hooks/use-page-access'
 import {
   LayoutDashboard,
   ShoppingCart,
+  ShoppingBag,
   Store,
   Smartphone,
   BadgeCheck,
@@ -40,6 +41,15 @@ const NAV = [
   { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
   { href: '/dashboard/sub/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
+  // Marketplace lives on its own subdomain (middleware.ts rewrites it onto
+  // app/classifieds/*), so this entry leaves the portal in a new tab instead of
+  // routing inside it — the installed portal PWA stays where the sub-agent left it.
+  {
+    href: process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com',
+    label: 'Marketplace',
+    icon: ShoppingBag,
+    external: true,
+  },
   // Recruiting. Hidden only from a level-2 sub — see recruitBlocked below.
   { href: '/dashboard/sub/sub-agents', label: 'My Sub-Agents', icon: Crown, recruitOnly: true },
   { href: '/dashboard/sub/ussd', label: 'USSD Code', icon: Smartphone },
@@ -158,17 +168,30 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
           {NAV.filter((item) => isPageAccessible(item.href))
             .filter((item) => !('recruitOnly' in item && item.recruitOnly) || !recruitBlocked)
             .map((item) => {
-            const active = isActive(item)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                  active ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
-                }`}
-              >
+            const external = 'external' in item && item.external
+            const active = !external && isActive(item)
+            const className = `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              active ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`
+            const inner = (
+              <>
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 {item.label}
+              </>
+            )
+            return external ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={className}
+              >
+                {inner}
+              </a>
+            ) : (
+              <Link key={item.href} href={item.href} className={className}>
+                {inner}
               </Link>
             )
           })}
