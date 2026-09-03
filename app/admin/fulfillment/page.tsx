@@ -172,8 +172,9 @@ export default function FulfillmentPage() {
     const [cronAutoCompleteDelay, setCronAutoCompleteDelay] = useState('30')
     const [isSavingCronSettings, setIsSavingCronSettings] = useState(false)
 
-    // MTN registration gate — blocks orders to unregistered MTN numbers until the
-    // buyer accepts the wait. Off unless the DB says otherwise.
+    // MTN registration gate — refuses orders to unregistered MTN numbers on storefronts
+    // and USSD only. The dashboard and the API are not gated at all.
+    // Off unless the DB says otherwise.
     const [mtnGateEnabled, setMtnGateEnabled] = useState(false)
     const [isSavingMtnGate, setIsSavingMtnGate] = useState(false)
 
@@ -364,7 +365,7 @@ export default function FulfillmentPage() {
                 .upsert([{ key: 'mtn_registration_gate_enabled', value: String(enabled) }])
             if (error) throw error
             toast.success(enabled
-                ? 'Unregistered MTN numbers will now be blocked before payment'
+                ? 'Unregistered MTN numbers are now refused on storefronts and USSD'
                 : 'MTN registration check turned off')
         } catch (error: any) {
             setMtnGateEnabled(previous)
@@ -1587,11 +1588,14 @@ export default function FulfillmentPage() {
                         <div className="flex-1">
                             <p className="text-sm font-bold">🔒 Block Orders To Unregistered MTN Numbers</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                When ON, buyers are warned before paying if the recipient&apos;s MTN number isn&apos;t registered
-                                yet, and must confirm they accept the up-to-2-week wait. When OFF, those orders go through
-                                silently. Runs the Agent Portal registration check whichever supplier is currently
-                                fulfilling MTN — so some orders your active supplier could have delivered will be held
-                                instead. Changes apply within a minute.
+                                When ON, an MTN number that isn&apos;t registered yet is <strong>refused outright on shop
+                                storefronts and on USSD</strong> — nothing is charged and no order is created. This does
+                                not affect the dashboard or the API: those buyers are never stopped or warned, and their
+                                orders sit pending until MTN enables the number. When OFF, storefront and USSD orders go
+                                through silently too. Runs the Agent Portal registration check whichever supplier is
+                                currently fulfilling MTN, so some sales your active supplier could have delivered will
+                                be turned away instead. Note that checking a number also submits it for registration —
+                                turning this off later does not undo that. Changes apply within a minute.
                             </p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">

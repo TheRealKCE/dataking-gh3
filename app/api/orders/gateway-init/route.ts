@@ -9,8 +9,6 @@ import { resolveDataPrice } from '@/lib/data-order-pricing'
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
-import { checkMtnRegistrationBatch, registrationRequiredBody } from '@/lib/mtn-registration-gate'
-import { validateGhanaianPhone } from '@/lib/phone-validation'
 
 /**
  * Direct Pay for data bundles.
@@ -63,7 +61,6 @@ export async function POST(request: NextRequest) {
             momoNetwork,
             otpCode,
             reference: existingRef,
-            acknowledgeRegistration,
         } = body
 
         // ── Normalize single vs bulk into one list ────────────────────────────
@@ -188,27 +185,11 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // ── MTN REGISTRATION GATE ─────────────────────────────────────────────
-        // Before the gateway is called, not after: an unregistered number must never
-        // trigger a debit prompt on the buyer's phone for data that cannot land yet.
-        const registrationGate = await checkMtnRegistrationBatch(
-            supabase,
-            metadataItems.map(i => ({ phoneNumber: i.phone_number, packageNetwork: i.network }))
-        )
-
-        if (registrationGate.unregistered.length > 0 && !acknowledgeRegistration) {
-            return NextResponse.json(
-                registrationRequiredBody(registrationGate.unregistered, metadataItems.length),
-                { status: 409 }
-            )
-        }
-
-        // Carried through payment metadata so the settlement path can hold these orders.
-        const unregisteredSet = new Set(registrationGate.unregistered)
-        for (const item of metadataItems) {
-            const validation = validateGhanaianPhone(item.phone_number)
-            item.awaiting_registration = validation.isValid && unregisteredSet.has(validation.normalizedNumber)
-        }
+        // NOTE: the MTN registration gate deliberately does NOT run here — see
+        // app/api/orders/purchase/route.ts for the reasoning. Nothing sets
+        // item.awaiting_registration any more, so lib/data-order-payments.ts reads it as
+        // false for every new payment; it still honours a true value so references
+        // initialized before this shipped settle correctly.
 
         const subtotal = parseFloat(
             metadataItems.reduce((sum, i) => sum + Number(i.price), 0).toFixed(2)

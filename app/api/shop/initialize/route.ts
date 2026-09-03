@@ -21,7 +21,7 @@ const redis = Redis.fromEnv()
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone, guestEmail, payerPhone, payerNetwork, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef, acknowledgeRegistration } = body
+        const { shopSlug, packageId, guestPhone, guestEmail, payerPhone, payerNetwork, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -276,13 +276,16 @@ export async function POST(request: NextRequest) {
         // Guests pay before fulfillment here, so this must run before the prompt is
         // sent — otherwise we take money for data that cannot be delivered yet.
         // Airtime is exempt: it has no whitelist.
-        let awaitingRegistration = false
+        //
+        // This 409 is FINAL. There is no acknowledgeRegistration escape on the
+        // storefront, unlike the dashboard and the public API: a guest has no account,
+        // so a held order is one they can neither track nor chase. Refusing the sale is
+        // kinder than banking it against a two-week wait they cannot follow up on.
         if (orderType !== 'airtime') {
             const gate = await checkMtnRegistration(db, cleanPhone, pkgNetwork)
-            if (gate.gated && !acknowledgeRegistration) {
+            if (gate.gated) {
                 return NextResponse.json(registrationRequiredBody([gate.normalizedNumber]), { status: 409 })
             }
-            awaitingRegistration = gate.gated
         }
 
         const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
@@ -298,7 +301,10 @@ export async function POST(request: NextRequest) {
             payer_phone: payerClean,
             guest_email: validatedGuestEmail,
             fulfillment_mode: shop.fulfillment_mode,
-            awaiting_registration: awaitingRegistration,
+            // Always false now — the gate above refuses instead of holding. Kept in the
+            // metadata because processShopOrder still honours it for references that
+            // were initialized before the hard block shipped and settle after it.
+            awaiting_registration: false,
             ...metadataPayload,
         }
 

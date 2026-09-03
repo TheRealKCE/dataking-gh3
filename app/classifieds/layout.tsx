@@ -13,8 +13,10 @@ export default function ClassifiedsLayout({
 }) {
     return (
         <div className="min-h-screen">
-            {/* pb clears the fixed mobile bottom nav (+ iOS safe area); removed on md+ */}
-            <div className="pb-20 md:pb-0">{children}</div>
+            {children}
+            {/* Renders its own in-flow spacer, so clearance matches the real bar
+                height (+ iOS safe area) and disappears on the routes where the
+                bar hides itself. */}
             <MarketplaceBottomNav />
         </div>
     )

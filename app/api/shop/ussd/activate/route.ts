@@ -2,6 +2,11 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
+import {
+    chargeMobileMoney as paystackChargeMobileMoney,
+    submitOtp as paystackSubmitOtp,
+    PAYSTACK_MOMO_PROVIDER_MAP,
+} from '@/lib/paystack-momo-service'
 import { resolveSubAgentContext, type SubAgentContext } from '@/lib/sub-agents'
 import { isUssdEnabled, USSD_ENABLED_KEY, USSD_UNAVAILABLE_MESSAGE } from '@/lib/ussd-availability'
 
@@ -9,15 +14,59 @@ import { isUssdEnabled, USSD_ENABLED_KEY, USSD_UNAVAILABLE_MESSAGE } from '@/lib
  * USSD short-code activation — a one-time, lifetime purchase.
  *
  * Modelled on /api/user/upgrade/initialize: the wallet branch settles entirely
- * server-side, while the Hubtel branch leaves a pending `wallet_payments` row
- * that the Hubtel webhook settles through processCompletedUssdActivation.
+ * server-side, while the gateway branch leaves a pending `wallet_payments` row
+ * that the gateway's webhook settles through processCompletedUssdActivation.
  *
- * Mobile money always goes through Hubtel, matching the rest of the USSD stack.
+ * Mobile money goes through Paystack, matching the rest of the USSD stack: the
+ * dial-in service moved to Paystack Mobile Money and this purchase followed it.
+ * admin_settings.ussd_payment_provider is the shared rollback switch - naming
+ * 'hubtel' there puts both back on the old gateway.
  *
  * The reference is prefixed `ussd_activation_` (not `SHOPUSSD-`) so it routes
  * through the webhooks' existing wallet_payments lookup, which already does the
  * idempotency and paid-amount checks for every `*_upgrade_`-style purchase.
  */
+
+/** admin_settings key naming which gateway collects. Shared with the dial-in service. */
+const USSD_PAYMENT_PROVIDER_KEY = 'ussd_payment_provider'
+
+/**
+ * Which gateway collects for an activation.
+ *
+ * Reads the same key, and applies the same rule, as getUssdFlags() in
+ * app/api/hubtel/interact/route.ts: Paystack unless someone has deliberately
+ * named hubtel. The value has been written both JSON-quoted and bare over the
+ * years, so the quotes come off before comparing.
+ *
+ * Defaulting to Paystack rather than failing closed is deliberate. Unlike
+ * ussd_enabled, this switch does not decide WHETHER to take money, only which
+ * gateway takes it - a missing row should route to the live gateway, not strand
+ * a paying customer on the retired one.
+ */
+function resolveActivationProvider(settingsMap: Record<string, any>): 'paystack' | 'hubtel' {
+    const raw = String(settingsMap[USSD_PAYMENT_PROVIDER_KEY] ?? '')
+        .trim()
+        .replace(/^"+|"+$/g, '')
+        .trim()
+        .toLowerCase()
+    return raw === 'hubtel' ? 'hubtel' : 'paystack'
+}
+
+/**
+ * The activation form's network values -> Paystack provider codes.
+ *
+ * The form posts 'AT' for AirtelTigo, because its options were written against
+ * HUBTEL_CHANNEL_MAP / MOOLRE_PAYMENT_CHANNEL_MAP / PAYSWITCH_CHANNEL_MAP, which
+ * all key it that way. PAYSTACK_MOMO_PROVIDER_MAP does not - it is keyed off
+ * detectNetwork(), which spells the network 'AirtelTigo'. Both spellings are
+ * accepted here so the form keeps one contract across every gateway.
+ */
+const PAYSTACK_PROVIDER_BY_FORM_NETWORK: Record<string, string> = {
+    MTN: PAYSTACK_MOMO_PROVIDER_MAP.MTN,
+    Telecel: PAYSTACK_MOMO_PROVIDER_MAP.Telecel,
+    AT: PAYSTACK_MOMO_PROVIDER_MAP.AirtelTigo,
+    AirtelTigo: PAYSTACK_MOMO_PROVIDER_MAP.AirtelTigo,
+}
 
 const PRICE_KEYS = [
     'ussd_activation_price_customer',
@@ -71,7 +120,7 @@ async function loadContext() {
     const { data: settings } = await supabaseAdmin
         .from('admin_settings')
         .select('key, value')
-        .in('key', [...PRICE_KEYS, 'ussd_dial_code', USSD_ENABLED_KEY])
+        .in('key', [...PRICE_KEYS, 'ussd_dial_code', USSD_ENABLED_KEY, USSD_PAYMENT_PROVIDER_KEY])
 
     const settingsMap: Record<string, any> = {}
     for (const row of (settings || [])) settingsMap[row.key] = row.value
@@ -108,6 +157,128 @@ function activationBlockReason(shop: any, sub: SubAgentContext): string | null {
     return null
 }
 
+/**
+ * Turns a Paystack charge (or OTP) outcome into the response the activation panel
+ * understands, settling inline when Paystack says the money is already in.
+ *
+ * Inline settlement is safe: processCompletedUssdActivation() is idempotent on the
+ * wallet_payments status transition, so the webhook arriving afterwards is a no-op.
+ * It is worth doing because a 'success' on the charge call means the buyer is
+ * watching a spinner for money that has already left their wallet.
+ *
+ * Anything that is not a decline stays pending on purpose. A charge we could not
+ * classify may still come good, and the webhook plus the reconciliation sweep in
+ * /api/cron/verify-ussd-payments both settle from that pending row.
+ */
+async function respondToPaystackOutcome(params: {
+    supabaseAdmin: any
+    charge: { outcome: string; displayText: string | null; message: string | null }
+    reference: string
+    price: number
+    metadata: Record<string, any>
+    dialCode: string
+}) {
+    const { supabaseAdmin, charge, reference, price, metadata, dialCode } = params
+
+    if (charge.outcome === 'failed') {
+        await (supabaseAdmin.from('wallet_payments') as any)
+            .update({ status: 'failed', updated_at: new Date().toISOString() })
+            .eq('reference', reference)
+            .eq('status', 'pending')
+        return NextResponse.json(
+            { error: charge.message || 'The charge was declined. Please try again.' },
+            { status: 502 }
+        )
+    }
+
+    if (charge.outcome === 'otp') {
+        return NextResponse.json({
+            success: true,
+            gateway: 'paystack',
+            otpRequired: true,
+            reference,
+            message: charge.displayText || 'Enter the one-time code sent to your phone.',
+        })
+    }
+
+    if (charge.outcome === 'paid') {
+        const { processCompletedUssdActivation } = await import('@/lib/payments')
+        const result = await processCompletedUssdActivation(reference, {
+            reference,
+            amount: Math.round(price * 100),
+            metadata,
+        })
+
+        if (result?.success && (result as any).shortCode) {
+            return NextResponse.json({
+                success: true,
+                gateway: 'paystack',
+                activated: true,
+                reference,
+                shortCode: (result as any).shortCode,
+                dialCode,
+                message: `Your USSD short code is ${(result as any).shortCode}.`,
+            })
+        }
+
+        // Paid, but we could not finish it here. Left pending deliberately so the
+        // webhook and the sweep can, and reported as a normal prompt so the page
+        // keeps polling rather than telling the buyer their money vanished.
+        console.error('[UssdActivate] Inline settlement failed for a paid charge:', reference, result?.error)
+    }
+
+    return NextResponse.json({
+        success: true,
+        gateway: 'paystack',
+        reference,
+        message: charge.displayText || 'Payment prompt sent to your phone. Please approve to continue.',
+    })
+}
+
+/**
+ * Finishes a charge that answered 'send_otp' — Telecel and AirtelTigo ask the payer
+ * to type a code rather than approve a prompt.
+ *
+ * The reference arrives from the client, so it is resolved against THIS caller's own
+ * pending activation row before Paystack is told anything. Without that check the
+ * endpoint would happily submit codes against a stranger's charge.
+ */
+async function submitActivationOtp(params: {
+    supabaseAdmin: any
+    userId: string
+    reference: string
+    otp: string
+    dialCode: string
+}) {
+    const { supabaseAdmin, userId, reference, otp, dialCode } = params
+
+    if (!reference || !otp) {
+        return NextResponse.json({ error: 'Enter the code you were sent' }, { status: 400 })
+    }
+
+    const { data: payment } = await supabaseAdmin
+        .from('wallet_payments')
+        .select('reference, total_amount, metadata')
+        .eq('reference', reference)
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+    if (!payment) {
+        return NextResponse.json({ error: 'That payment is no longer waiting for a code' }, { status: 404 })
+    }
+
+    const result = await paystackSubmitOtp({ reference, otp })
+
+    return respondToPaystackOutcome({
+        supabaseAdmin,
+        charge: result,
+        reference,
+        price: Number((payment as any).total_amount),
+        metadata: ((payment as any).metadata || {}) as Record<string, any>,
+        dialCode,
+    })
+}
 /** Lets the dashboard show the caller's price and activation state without exposing prices publicly. */
 export async function GET() {
     try {
@@ -170,17 +341,47 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Activation is not available right now. Please contact support.' }, { status: 503 })
         }
 
-        const { phone, network, paymentMethod } = await request.json().catch(() => ({}))
+        const body: any = await request.json().catch(() => ({}))
+        const { phone, network, paymentMethod, otp, reference: submittedReference } = body
+
+        const gateway = resolveActivationProvider(settingsMap)
+
+        // ── OTP SUBMISSION ───────────────────────────────────────────────────────
+        // Handled before anything is minted: this finishes a charge that already
+        // exists rather than starting a new one.
+        if (otp) {
+            if (gateway !== 'paystack') {
+                return NextResponse.json(
+                    { error: 'This payment method does not use a one-time code' },
+                    { status: 400 }
+                )
+            }
+            return submitActivationOtp({
+                supabaseAdmin,
+                userId: authUser.id,
+                reference: String(submittedReference || ''),
+                otp: String(otp),
+                dialCode: settingsMap.ussd_dial_code || '',
+            })
+        }
 
         const isWalletPayment = paymentMethod === 'wallet'
 
-        if (!isWalletPayment && (!phone || !network || !HUBTEL_CHANNEL_MAP[network])) {
+        // Each gateway spells the networks differently, so the form's value is
+        // checked against the one that will actually be charged.
+        const paystackProvider = network ? PAYSTACK_PROVIDER_BY_FORM_NETWORK[network] : undefined
+        const networkSupported = gateway === 'paystack'
+            ? !!paystackProvider
+            : !!(network && HUBTEL_CHANNEL_MAP[network])
+
+        if (!isWalletPayment && (!phone || !network || !networkSupported)) {
             return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
         }
 
         // Always minted server-side. The upgrade route this was modelled on accepts
-        // a client reference to resubmit after a Moolre OTP step; Hubtel has no OTP,
-        // so honouring one here would only let a caller collide with a payment row.
+        // a client reference to resubmit after an OTP step; here the OTP branch above
+        // resolves its own reference from the caller's pending row instead, so a
+        // client-supplied one could only ever collide with someone else's payment.
         const reference = `ussd_activation_${generateReferenceCode()}`
 
         const activationMetadata = {
@@ -289,11 +490,14 @@ export async function POST(request: Request) {
             })
         }
 
-        // ── HUBTEL BRANCH ────────────────────────────────────────────────────────
-        // Activation always prompts through Hubtel, matching the rest of the USSD
-        // stack. It deliberately ignores active_payment_provider_web: this purchase
-        // only ever collects a phone + network, so routing it to a card gateway
-        // would strand the caller on a checkout page they never asked for.
+        // ── MOBILE MONEY BRANCH ──────────────────────────────────────────────────
+        // Whichever gateway collects, the shape is the same: a pending
+        // wallet_payments row minted here, settled by that gateway's webhook through
+        // processCompletedUssdActivation.
+        //
+        // Deliberately ignores active_payment_provider_web. This purchase only ever
+        // collects a phone + network, so routing it to a card gateway would strand
+        // the buyer on a checkout page they never asked for.
         const { data: wallet } = await supabaseAdmin
             .from('wallets')
             .select('id')
@@ -310,7 +514,9 @@ export async function POST(request: Request) {
                 fee: 0,
                 total_amount: price,
                 reference,
-                provider: 'hubtel',
+                // The row has to name its own gateway: the reconciliation sweeps are
+                // scoped by provider, so a mislabelled row is one nothing recovers.
+                provider: gateway,
                 status: 'pending',
                 metadata: activationMetadata,
             })
@@ -320,6 +526,37 @@ export async function POST(request: Request) {
             throw new Error('Failed to record payment attempt')
         }
 
+        // ── PAYSTACK (default) ───────────────────────────────────────────────────
+        // The Charge API, not transaction/initialize. Everywhere else in the app
+        // Paystack means a hosted checkout page the browser is redirected to; here we
+        // debit the handset directly and the buyer approves on their phone, exactly as
+        // the dial-in service does.
+        if (gateway === 'paystack') {
+            const charge = await paystackChargeMobileMoney({
+                reference,
+                amountGhs: price,
+                payerMsisdn: phone,
+                provider: paystackProvider!,
+                // Unlike a USSD caller, this buyer has an account — booking the charge
+                // against their real email groups it with the rest of their payments in
+                // Paystack's dashboard instead of behind a synthetic address.
+                email: authUser.email || undefined,
+                metadata: activationMetadata,
+            })
+
+            return respondToPaystackOutcome({
+                supabaseAdmin,
+                charge,
+                reference,
+                price,
+                metadata: activationMetadata,
+                dialCode: settingsMap.ussd_dial_code || '',
+            })
+        }
+
+        // ── HUBTEL (rollback path) ───────────────────────────────────────────────
+        // Reached only when admin_settings.ussd_payment_provider explicitly says
+        // 'hubtel'. Kept working so the switch is a real way back, not a label.
         const hubtelResponse = await hubtelInitiatePayment({
             amount: price,
             payerPhone: phone,
