@@ -248,6 +248,22 @@ function WalletContent() {
 
             const data = await response.json()
 
+            // A charge is already live for this number — hand the customer back to it
+            // instead of an error they cannot act on. Starting a new payment would
+            // cancel the code the previous one sent.
+            if (!response.ok && data.resumable && data.reference) {
+                setPaymentReference(data.reference)
+                if (data.otpRequired) {
+                    setOtpMessage(data.error || '')
+                    setOtpRequired(true)
+                } else {
+                    toast.info(data.error || 'A payment prompt is already waiting on your phone.')
+                    setPollingRef(data.reference)
+                }
+                setIsProcessing(false)
+                return
+            }
+
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to initialize payment')
             }

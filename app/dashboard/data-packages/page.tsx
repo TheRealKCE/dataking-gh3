@@ -596,6 +596,24 @@ export default function DataPackagesPage() {
 
             const data = await res.json()
 
+            // A charge is already live for this number. Rather than a dead-end error,
+            // hand the customer back to it: if it is waiting on a code, reopen the
+            // dialog for that reference, because starting a new payment would cancel
+            // the code they were sent.
+            if (!res.ok && data.resumable && data.reference) {
+                setDirectPaymentRef(data.reference)
+                setPollingKind('single')
+                if (data.otpRequired) {
+                    setOtpMessage(data.error || '')
+                    setOtpRequired(true)
+                } else {
+                    toast.info(data.error || 'A payment prompt is already waiting on your phone.')
+                    setPollingRef(data.reference)
+                }
+                setIsPurchasing(false)
+                return
+            }
+
             if (!res.ok) throw new Error(data.error || 'Payment could not be started')
 
             setPollingKind('single')

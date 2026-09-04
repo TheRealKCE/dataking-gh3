@@ -47,7 +47,7 @@ const PENDING_MARKER_TTL_SECONDS = 86_400
  * early whenever a charge is refused, so this only ever delays someone whose
  * previous prompt is still valid.
  */
-const INFLIGHT_TTL_SECONDS = 120
+const INFLIGHT_TTL_SECONDS = 90
 
 function inflightKey(msisdn: string): string {
     return `paystack_momo:inflight:${String(msisdn || '').replace(/\D/g, '')}`
@@ -196,6 +196,10 @@ export async function startPaystackMomoCharge(
         if (!claimed) {
             const raw = await redis.get<any>(key)
             const held = typeof raw === 'string' ? JSON.parse(raw) : raw
+            // The two live states need opposite instructions. Telling someone to
+            // approve a prompt when what is waiting is a code — or the reverse —
+            // sends them looking for something that was never sent.
+            const heldNeedsOtp = held?.otpRequired === true
             return {
                 ok: false,
                 outcome: 'failed',
@@ -204,8 +208,14 @@ export async function startPaystackMomoCharge(
                 safeToMarkFailed: true,
                 httpStatus: 409,
                 body: {
-                    error: 'A payment prompt was just sent to this number. Please approve it on your phone, or wait a moment before trying again.',
+                    error: heldNeedsOtp
+                        ? 'We already sent a one-time code to this number. Enter that code to finish — a new payment would cancel it.'
+                        : 'A payment prompt was just sent to this number. Please approve it on your phone, or wait a moment before trying again.',
+                    // Handed back so the client can resume the live charge rather than
+                    // stranding the customer behind an error they cannot act on.
                     reference: held?.reference ?? null,
+                    otpRequired: heldNeedsOtp,
+                    resumable: !!held?.reference,
                 },
             }
         }
@@ -236,6 +246,15 @@ export async function startPaystackMomoCharge(
     // case, so an agent buying for several customers is bounded by that, not by this.)
     if (holdsInflight && (charge.outcome === 'failed' || charge.outcome === 'paid')) {
         await redis.del(key).catch(() => {})
+    } else if (holdsInflight) {
+        // Record which of the two live states this is, so a customer who taps again
+        // is told the right thing and can be handed back to the charge they already
+        // have rather than being blocked with nothing to act on.
+        await redis.set(
+            key,
+            JSON.stringify({ reference: charge.reference, otpRequired: charge.outcome === 'otp' }),
+            { ex: INFLIGHT_TTL_SECONDS }
+        ).catch(() => {})
     }
 
     // Only once Paystack has accepted it. A prompt that never left does not count
