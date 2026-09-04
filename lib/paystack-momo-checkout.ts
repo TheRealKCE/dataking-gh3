@@ -39,6 +39,20 @@ const redis = Redis.fromEnv()
 /** Matches the Redis TTL the storefront metadata already uses. */
 const PENDING_MARKER_TTL_SECONDS = 86_400
 
+/**
+ * How long one payer number is held to a single live charge.
+ *
+ * Long enough to cover a customer reading an SMS and typing it, short enough that
+ * a genuinely dead charge does not lock them out for long. The window is released
+ * early whenever a charge is refused, so this only ever delays someone whose
+ * previous prompt is still valid.
+ */
+const INFLIGHT_TTL_SECONDS = 120
+
+function inflightKey(msisdn: string): string {
+    return `paystack_momo:inflight:${String(msisdn || '').replace(/\D/g, '')}`
+}
+
 export interface MomoChargeInput {
     reference: string
     /**
@@ -161,6 +175,47 @@ export async function startPaystackMomoCharge(
         }
     }
 
+    // One live charge per number at a time.
+    //
+    // Without this, every press of the pay button mints a new reference and a new
+    // charge. Customers press it repeatedly — the logs are full of the same number
+    // charged seven or eight times with gaps of seven to thirty seconds — because
+    // nothing on screen changes while a prompt is on its way. Each new charge
+    // supersedes the OTP the previous one sent, so the code the customer is halfway
+    // through typing goes dead, and the symptom reads as "the OTP never came".
+    //
+    // It also stops the pileup those retries leave behind: a stack of pending rows
+    // per customer that the sweep then has to close one by one.
+    const key = inflightKey(input.payerPhone)
+    let holdsInflight = false
+    try {
+        const claimed = await redis.set(key, JSON.stringify({ reference: input.reference }), {
+            nx: true,
+            ex: INFLIGHT_TTL_SECONDS,
+        })
+        if (!claimed) {
+            const raw = await redis.get<any>(key)
+            const held = typeof raw === 'string' ? JSON.parse(raw) : raw
+            return {
+                ok: false,
+                outcome: 'failed',
+                // The new row is a duplicate that was never charged, so failing it is
+                // correct and leaves the earlier charge untouched.
+                safeToMarkFailed: true,
+                httpStatus: 409,
+                body: {
+                    error: 'A payment prompt was just sent to this number. Please approve it on your phone, or wait a moment before trying again.',
+                    reference: held?.reference ?? null,
+                },
+            }
+        }
+        holdsInflight = true
+    } catch (e) {
+        // Fails OPEN, same stance as the prompt limiter: a Redis blip must not stop
+        // payments. The worst case is the duplicate behaviour we already have today.
+        console.error('[PaystackMomo] in-flight guard unavailable, allowing charge:', e)
+    }
+
     const charge = await chargeMobileMoney({
         reference: input.reference,
         amountGhs: input.amountGhs,
@@ -170,6 +225,18 @@ export async function startPaystackMomoCharge(
         metadata: input.metadata,
         timeoutMs: WEB_CHARGE_TIMEOUT_MS,
     })
+
+    // Released as soon as the charge reaches a terminal state. A refusal sent nothing
+    // to the handset, and a charge that already succeeded is finished — in neither
+    // case is there a live prompt worth protecting, so the customer must be free to
+    // start another payment straight away. Only 'otp' and 'pending' keep the hold,
+    // which are exactly the states a second charge would sabotage.
+    //
+    // (The 8-per-hour prompt limiter is a tighter constraint than this window in any
+    // case, so an agent buying for several customers is bounded by that, not by this.)
+    if (holdsInflight && (charge.outcome === 'failed' || charge.outcome === 'paid')) {
+        await redis.del(key).catch(() => {})
+    }
 
     // Only once Paystack has accepted it. A prompt that never left does not count
     // against a customer who will have to try again.
@@ -204,6 +271,8 @@ export async function startPaystackMomoCharge(
 export async function submitPaystackMomoOtp(params: {
     reference: string
     otp: string
+    /** Releases this number's in-flight hold once the code settles the charge. */
+    payerPhone?: string | null
 }): Promise<MomoChargeResult> {
     const result = await submitOtp({
         reference: params.reference,
@@ -221,6 +290,13 @@ export async function submitPaystackMomoOtp(params: {
         message: result.displayText ?? result.message ?? `OTP submitted, Paystack said ${result.rawStatus ?? 'nothing'}`,
         raw: result.raw,
     })
+
+    // The code carried the charge to a finish, so this number is free again. A wrong
+    // code deliberately keeps the hold: the same charge is still live and the
+    // customer is about to retype against it.
+    if (params.payerPhone && result.outcome === 'paid') {
+        await redis.del(inflightKey(params.payerPhone)).catch(() => {})
+    }
 
     if (result.outcome === 'failed') {
         // An OTP rejection is not a dead payment — the customer can retype the code

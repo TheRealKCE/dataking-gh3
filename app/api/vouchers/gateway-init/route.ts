@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (otpCode && existingRef) {
-                const otpResult = await submitPaystackMomoOtp({ reference: referenceCode, otp: String(otpCode) })
+                const otpResult = await submitPaystackMomoOtp({ reference: referenceCode, otp: String(otpCode), payerPhone: momoPhone })
                 return NextResponse.json(otpResult.body, otpResult.ok ? undefined : { status: otpResult.httpStatus })
             }
 
