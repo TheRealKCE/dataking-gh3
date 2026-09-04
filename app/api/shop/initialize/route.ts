@@ -12,6 +12,7 @@ import {
 } from '@/lib/payswitch-payment-service'
 import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
+import { shopFeeSettingKeys, resolveShopFeePercent } from '@/lib/gateway-fees'
 import { checkMtnRegistration, registrationRequiredBody } from '@/lib/mtn-registration-gate'
 
 // Redis client for distributed idempotency across all serverless instances.
@@ -112,14 +113,16 @@ export async function POST(request: NextRequest) {
         const settings: Record<string, string> = {}
         for (const row of (settingsRows || [])) settings[row.key] = row.value
 
+        // Resolved here rather than just before the gateway branches, because the fee
+        // keys depend on which rail collects — and the price has to be settled before
+        // the order is priced, not after.
+        const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
+
         // Fetch role-specific Paystack fee from the correct table (shop_global_settings)
         const { data: paystackFeeRows } = await db
             .from('shop_global_settings')
             .select('key, value')
-            .in('key', [
-                `shop_paystack_fee_percent_${ownerRole}`,
-                'shop_paystack_fee_percent',
-            ])
+            .in('key', shopFeeSettingKeys(ownerRole, shopProvider))
         const paystackFeeMap: Record<string, string> = {}
         for (const row of (paystackFeeRows || [])) paystackFeeMap[row.key] = row.value
 
@@ -233,15 +236,13 @@ export async function POST(request: NextRequest) {
             }
 
             // --- Role-Aware Paystack Fee Resolution ---
-            // Priority: per-shop override → role-specific global → legacy global → last-resort default
-            let paystackFeePercent = 1.95 // last-resort only
-            if (shop.paystack_fee_percent !== null && shop.paystack_fee_percent !== undefined) {
-                paystackFeePercent = parseFloat(String(shop.paystack_fee_percent))
-            } else if (paystackFeeMap[`shop_paystack_fee_percent_${ownerRole}`] != null) {
-                paystackFeePercent = parseFloat(String(paystackFeeMap[`shop_paystack_fee_percent_${ownerRole}`]))
-            } else if (paystackFeeMap['shop_paystack_fee_percent'] != null) {
-                paystackFeePercent = parseFloat(String(paystackFeeMap['shop_paystack_fee_percent']))
-            }
+            // Shared with lib/shop-order-processor.ts, which re-derives this figure at
+            // settlement and rejects the order if it differs by more than five pesewas.
+            const paystackFeePercent = resolveShopFeePercent(paystackFeeMap, {
+                shopOverride: shop.paystack_fee_percent,
+                ownerRole,
+                provider: shopProvider,
+            })
             const paystackFee = Math.round(sellingPrice * (paystackFeePercent / 100) * 100) / 100
             totalAmount = Math.round((sellingPrice + paystackFee) * 100)
             pkgNetwork = pkg.network
@@ -288,7 +289,6 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
         const shopRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
         // Full metadata used by both webhook paths
@@ -300,6 +300,10 @@ export async function POST(request: NextRequest) {
             guest_phone: cleanPhone,
             payer_phone: payerClean,
             guest_email: validatedGuestEmail,
+            // Which rail priced this order. processShopOrder re-derives the fee at
+            // settlement and rejects a mismatch, so it has to resolve the same keys —
+            // and the admin setting may have been switched in between.
+            provider: shopProvider,
             fulfillment_mode: shop.fulfillment_mode,
             // Always false now — the gate above refuses instead of holding. Kept in the
             // metadata because processShopOrder still honours it for references that

@@ -8,6 +8,7 @@ import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
+import { WEB_FEE_SETTING_KEYS, resolveWebFeePercent } from '@/lib/gateway-fees'
 
 // Build admin client safely — returns null with an error string if env vars are missing
 function buildAdminClient(): { client: ReturnType<typeof createClient> | null; error: string | null } {
@@ -76,8 +77,7 @@ export async function POST(request: NextRequest) {
             supabaseAdmin.from('users' as any).select('email').eq('id', userId).single(),
             supabaseAdmin.from('users' as any).select('role').eq('id', userId).single(),
             supabaseAdmin.from('admin_settings' as any).select('key, value').in('key', [
-                'paystack_fee_percent',
-                'agent_paystack_fee_percent',
+                ...WEB_FEE_SETTING_KEYS,
                 'active_payment_provider_web',
             ]),
         ])
@@ -164,14 +164,12 @@ export async function POST(request: NextRequest) {
             fee = hubtelFees.fee
             totalAmount = hubtelFees.total
         } else {
-            // Paystack / Moolre: use admin-configured fee percent
-            const feeKey = (userRoleData as any)?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
-            const feeSetting = settingsMap[feeKey] ?? settingsMap['paystack_fee_percent']
-            let feePercent = 1.95
-            if (feeSetting !== undefined && feeSetting !== null) {
-                const parsed = typeof feeSetting === 'string' ? parseFloat(feeSetting) : Number(feeSetting)
-                if (!isNaN(parsed)) feePercent = parsed
-            }
+            // Paystack / Paystack MoMo / Moolre: admin-configured percent, resolved
+            // through the shared ladder so this and the settlement side cannot drift.
+            const feePercent = resolveWebFeePercent(settingsMap, {
+                role: (userRoleData as any)?.role,
+                provider,
+            })
             fee = calculatePaystackFee(amount, feePercent)
             totalAmount = amount + fee
         }

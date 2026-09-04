@@ -8,6 +8,7 @@ import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
+import { WEB_FEE_SETTING_KEYS, resolveWebFeePercent } from '@/lib/gateway-fees'
 import { buildUtilityIntent, utilitySettingKeys, isUtilityVisibleTo, UTILITY_LAUNCH_KEY } from '@/lib/utility-order-intent'
 
 /**
@@ -66,8 +67,7 @@ export async function POST(request: NextRequest) {
             supabase.from('users').select('email, first_name, last_name, phone_number, role').eq('id', userId).single(),
             supabase.from('admin_settings').select('key, value').in('key', [
                 ...utilitySettingKeys(service),
-                'paystack_fee_percent',
-                'agent_paystack_fee_percent',
+                ...WEB_FEE_SETTING_KEYS,
                 'active_payment_provider_web',
                 UTILITY_LAUNCH_KEY,
             ]),
@@ -99,10 +99,15 @@ export async function POST(request: NextRequest) {
         let gatewayFee = 0
         let totalAmount = subtotal
 
-        if (gateway === 'paystack') {
-            const feePercent = parseFloat(
-                (userRole === 'agent' ? settings.agent_paystack_fee_percent : settings.paystack_fee_percent) || '0'
-            )
+        if (gateway === 'paystack' || gateway === 'paystack_momo') {
+            // fallbackPercent 0 preserves this route's original `|| '0'`: an
+            // unconfigured key has always meant a free utility transfer here, unlike
+            // the wallet and data flows which fall back to 1.95.
+            const feePercent = resolveWebFeePercent(settings, {
+                role: userRole,
+                provider: gateway,
+                fallbackPercent: 0,
+            })
             gatewayFee = calculatePaystackFee(subtotal, feePercent)
             totalAmount = parseFloat((subtotal + gatewayFee).toFixed(2))
         } else if (gateway === 'hubtel') {

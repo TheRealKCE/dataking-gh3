@@ -27,6 +27,8 @@ export default function AdminSettingsPage() {
     // Form states
     const [paystackFee, setPaystackFee] = useState('1.95')
     const [agentPaystackFee, setAgentPaystackFee] = useState('1.95')
+    const [paystackMomoFee, setPaystackMomoFee] = useState('1.95')
+    const [agentPaystackMomoFee, setAgentPaystackMomoFee] = useState('1.95')
     const [mtnAdjustment, setMtnAdjustment] = useState('0')
     const [agentUpgradePrice, setAgentUpgradePrice] = useState('100')
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
@@ -107,6 +109,11 @@ export default function AdminSettingsPage() {
             // Initialize form values
             setPaystackFee(settingsMap.paystack_fee_percent || '1.95')
             setAgentPaystackFee(settingsMap.agent_paystack_fee_percent || '1.95')
+            // Fall back to the hosted-checkout figure rather than to 1.95, so the box
+            // shows what the MoMo rail would actually charge today — lib/gateway-fees
+            // resolves it the same way when the momo key is unset.
+            setPaystackMomoFee(settingsMap.paystack_momo_fee_percent || settingsMap.paystack_fee_percent || '1.95')
+            setAgentPaystackMomoFee(settingsMap.agent_paystack_momo_fee_percent || settingsMap.agent_paystack_fee_percent || '1.95')
             setMtnAdjustment(settingsMap.mtn_price_adjustment || '0')
             setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
@@ -185,6 +192,8 @@ export default function AdminSettingsPage() {
                 { key: 'referral_clawback_on_refund', value: String(referralClawbackOnRefund) },
                 { key: 'paystack_fee_percent', value: paystackFee },
                 { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
+                { key: 'paystack_momo_fee_percent', value: paystackMomoFee },
+                { key: 'agent_paystack_momo_fee_percent', value: agentPaystackMomoFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
                 { key: 'agent_upgrade_price', value: agentUpgradePrice },
                 { key: 'afa_price_customer', value: afaPriceCustomer },
@@ -440,6 +449,26 @@ export default function AdminSettingsPage() {
                                     step="0.01"
                                 />
                                 <p className="text-xs text-muted-foreground">Fee passed on to AGENTS during wallet top-up</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Paystack MoMo Fee Percentage (%)</Label>
+                                <Input
+                                    type="number"
+                                    value={paystackMomoFee}
+                                    onChange={(e) => setPaystackMomoFee(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">Used when a scope is set to Paystack MoMo (the direct prompt). Leave blank to reuse the Paystack fee above.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Agent Paystack MoMo Fee Percentage (%)</Label>
+                                <Input
+                                    type="number"
+                                    value={agentPaystackMomoFee}
+                                    onChange={(e) => setAgentPaystackMomoFee(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">The same, for AGENTS. Leave blank to reuse the Agent Paystack fee above.</p>
                             </div>
                             <div className="space-y-2">
                                 <Label>MTN Price Adjustment (GHS)</Label>

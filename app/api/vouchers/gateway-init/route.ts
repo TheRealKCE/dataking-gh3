@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
             type,
             quantity,
             userRole,
-            includePaystackFee: gateway === 'paystack' || gateway === 'payswitch',
+            includePaystackFee: gateway === 'paystack' || gateway === 'paystack_momo' || gateway === 'payswitch',
         })
 
         // Generate unique reference
