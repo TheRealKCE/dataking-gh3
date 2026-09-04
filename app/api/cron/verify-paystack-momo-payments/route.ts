@@ -41,6 +41,18 @@ import {
 
 const redis = Redis.fromEnv()
 
+/**
+ * This sweep has four parts where the one it replaced had two, and each part can
+ * make up to BATCH_LIMIT verify calls of up to 15s each. Normal runs are quick —
+ * the throttle skips most rows — but the slowest run is the one after an outage,
+ * which is exactly the run that matters. Matches the sync-* routes, which set this
+ * for the same reason.
+ *
+ * A cut-off request loses nothing: every part commits as it goes and every settle
+ * path is idempotent, so the next run resumes where this one stopped.
+ */
+export const maxDuration = 60
+
 /** Let the webhook land before second-guessing it. */
 const CALLBACK_GRACE_MINUTES = 5
 /** Before this a customer may still walk back to their phone and approve. */
