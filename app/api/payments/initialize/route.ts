@@ -9,6 +9,13 @@ import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } fr
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 import { WEB_FEE_SETTING_KEYS, resolveWebFeePercent } from '@/lib/gateway-fees'
+import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import {
+    startPaystackMomoCharge,
+    submitPaystackMomoOtp,
+    assertOwnPendingPayment,
+    type MomoChargeResult,
+} from '@/lib/paystack-momo-checkout'
 
 // Build admin client safely — returns null with an error string if env vars are missing
 function buildAdminClient(): { client: ReturnType<typeof createClient> | null; error: string | null } {
@@ -119,6 +126,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Valid phone number and network are required for PaySwitch payment' }, { status: 400 })
         }
 
+        if (provider === 'paystack_momo' && (!phone || !network || !paystackMomoProviderFor(network))) {
+            return NextResponse.json({ error: 'Valid phone number and network are required for mobile money payment' }, { status: 400 })
+        }
+
         if (provider === 'paystack') {
             if (!process.env.PAYSTACK_SECRET_KEY) {
                 console.error('[WalletInit] PAYSTACK_SECRET_KEY missing on Vercel!')
@@ -210,6 +221,72 @@ export async function POST(request: NextRequest) {
                 )
             }
             paymentId = (payment as any).id
+        }
+
+        /**
+         * Turns a MoMo charge result into this route's response.
+         *
+         * The `safeToMarkFailed` guard is the important part. A duplicate-reference
+         * refusal and a thrown fetch both leave a charge that may exist, and a row
+         * stamped 'failed' can never be settled afterwards — the webhook and every
+         * processor act only on the pending -> completed transition. Marking those
+         * failed is how money gets taken for nothing delivered.
+         */
+        const finishWalletMomo = async (result: MomoChargeResult) => {
+            if (!result.ok) {
+                if (result.safeToMarkFailed && !existingRef) {
+                    await (supabaseAdmin.from('wallet_payments' as any))
+                        .update({ status: 'failed', updated_at: new Date().toISOString() })
+                        .eq('id', paymentId)
+                        .eq('status', 'pending')
+                }
+                return NextResponse.json(result.body, { status: result.httpStatus })
+            }
+
+            if (result.outcome === 'paid') {
+                // Idempotent, so a webhook arriving afterwards is a no-op. Worth doing
+                // because 'success' on the charge means the money has already left the
+                // customer's wallet while they watch a spinner.
+                const { processCompletedWalletPayment } = await import('@/lib/payments')
+                await processCompletedWalletPayment(
+                    reference,
+                    { reference, amount: Math.round(totalAmount * 100), metadata: { user_id: userId } },
+                    userId
+                )
+            }
+            return NextResponse.json(result.body)
+        }
+
+        // ── Step 10a0: PAYSTACK MOBILE MONEY ──────────────────────────────────
+        // The Charge API, not transaction/initialize: the prompt goes straight to the
+        // handset and there is no page to redirect to. Modelled on
+        // /api/shop/ussd/activate, which has collected this way since USSD activation
+        // moved to Paystack.
+        if (provider === 'paystack_momo') {
+            // An OTP finishes the charge that already exists. Nothing new is minted —
+            // Paystack refuses a second charge on the same reference, and re-sending
+            // one is how a customer ends up paying twice.
+            if (otpCode && existingRef) {
+                if (!await assertOwnPendingPayment(supabaseAdmin, existingRef, userId)) {
+                    return NextResponse.json(
+                        { error: 'That payment is no longer waiting for a code' },
+                        { status: 404 }
+                    )
+                }
+                const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) })
+                return finishWalletMomo(otpResult)
+            }
+
+            const charge = await startPaystackMomoCharge({
+                reference,
+                amountGhs: totalAmount,
+                payerPhone: phone,
+                network,
+                email: (user as any)?.email,
+                metadata: { user_id: userId, amount, fee, kind: 'wallet_topup' },
+                userId,
+            })
+            return finishWalletMomo(charge)
         }
 
         // ── Step 10a: PAYSTACK ────────────────────────────────────────────────

@@ -7,6 +7,13 @@ import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
+import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import {
+    startPaystackMomoCharge,
+    submitPaystackMomoOtp,
+    assertOwnPendingPayment,
+    type MomoChargeResult,
+} from '@/lib/paystack-momo-checkout'
 
 export async function POST(request: Request) {
     try {
@@ -321,6 +328,50 @@ export async function POST(request: Request) {
                 authorization_url: paystackData.data.authorization_url,
                 reference,
             })
+        }
+
+        // ── PAYSTACK MOBILE MONEY BRANCH ────────────────────────────────────────
+        if (provider === 'paystack_momo') {
+            if (!phone || !network || !paystackMomoProviderFor(network)) {
+                return NextResponse.json({ error: 'Valid phone number and network are required' }, { status: 400 })
+            }
+
+            const finish = async (result: MomoChargeResult) => {
+                if (!result.ok) {
+                    if (result.safeToMarkFailed && !existingRef) {
+                        await (supabaseAdmin.from('wallet_payments') as any)
+                            .update({ status: 'failed' })
+                            .eq('reference', reference)
+                            .eq('status', 'pending')
+                    }
+                    return NextResponse.json(result.body, { status: result.httpStatus })
+                }
+                if (result.outcome === 'paid') {
+                    const { processCompletedUpgradePayment } = await import('@/lib/payments')
+                    await processCompletedUpgradePayment(reference, {
+                        reference,
+                        amount: Math.round(totalAmount * 100),
+                        metadata: { upgrade_type: 'agent' },
+                    })
+                }
+                return NextResponse.json(result.body)
+            }
+
+            if (otpCode && existingRef) {
+                if (!await assertOwnPendingPayment(supabaseAdmin, existingRef, authUser.id)) {
+                    return NextResponse.json({ error: 'That payment is no longer waiting for a code' }, { status: 404 })
+                }
+                return finish(await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) }))
+            }
+
+            return finish(await startPaystackMomoCharge({
+                reference,
+                amountGhs: totalAmount,
+                payerPhone: phone,
+                network,
+                metadata: { user_id: authUser.id, upgrade_type: 'agent', kind: 'agent_upgrade' },
+                userId: authUser.id,
+            }))
         }
 
         // ── HUBTEL BRANCH ───────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
@@ -9,6 +9,13 @@ import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } fr
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 import { WEB_FEE_SETTING_KEYS, resolveWebFeePercent } from '@/lib/gateway-fees'
+import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import {
+    startPaystackMomoCharge,
+    submitPaystackMomoOtp,
+    assertOwnPendingPayment,
+    type MomoChargeResult,
+} from '@/lib/paystack-momo-checkout'
 import { buildUtilityIntent, utilitySettingKeys, isUtilityVisibleTo, UTILITY_LAUNCH_KEY } from '@/lib/utility-order-intent'
 
 /**
@@ -20,7 +27,7 @@ import { buildUtilityIntent, utilitySettingKeys, isUtilityVisibleTo, UTILITY_LAU
  * lib/utility-order-payments.ts creates the real order once the gateway confirms
  * payment, and is the only thing that ever spends from the prepaid account.
  *
- * The reference is `UTIL-…` — that prefix is what routes the callback in every
+ * The reference is `UTIL-â€¦` â€” that prefix is what routes the callback in every
  * collection webhook and reconciliation poller.
  *
  * Ghana Water's sessionId is looked up here so the bill can be priced against a live
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
-        // ── Load profile + settings ───────────────────────────────────────────
+        // â”€â”€ Load profile + settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const [{ data: profile }, { data: settingsRows }] = await Promise.all([
             supabase.from('users').select('email, first_name, last_name, phone_number, role').eq('id', userId).single(),
             supabase.from('admin_settings').select('key, value').in('key', [
@@ -76,7 +83,7 @@ export async function POST(request: NextRequest) {
         const settings: Record<string, any> = {}
         for (const row of (settingsRows || [])) settings[row.key] = row.value
 
-        // Live in production but not yet open — a hidden page is not a closed one,
+        // Live in production but not yet open â€” a hidden page is not a closed one,
         // and this is the route that moves money.
         if (!isUtilityVisibleTo(profile?.role, settings)) {
             return NextResponse.json({ error: 'Bill payments are not available yet.' }, { status: 403 })
@@ -85,14 +92,14 @@ export async function POST(request: NextRequest) {
         const userRole: 'agent' | 'customer' = profile?.role === 'agent' ? 'agent' : 'customer'
         const gateway: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_web, 'web')
 
-        // ── Validate + verify + price (all server-side) ───────────────────────
+        // â”€â”€ Validate + verify + price (all server-side) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const built = await buildUtilityIntent({ service, accountNumber, amount, phone, email }, settings, userRole)
         if (!built.ok) {
             return NextResponse.json({ error: built.error }, { status: built.status })
         }
         const intent = built.intent
 
-        // ── Gateway fee on top of our own fee ─────────────────────────────────
+        // â”€â”€ Gateway fee on top of our own fee â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Same rule as the data checkout: Paystack and Hubtel charge us, Moolre and
         // PaySwitch charge the payer directly.
         const subtotal = intent.totalPaid
@@ -116,7 +123,7 @@ export async function POST(request: NextRequest) {
             totalAmount = hubtelFee.total
         }
 
-        // ── Get or create wallet (wallet_payments needs a wallet_id) ──────────
+        // â”€â”€ Get or create wallet (wallet_payments needs a wallet_id) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let { data: wallet } = await supabase.from('wallets').select('id').eq('user_id', userId).single()
         if (!wallet) {
             const { data: newWallet, error: walletError } = await supabase
@@ -131,7 +138,7 @@ export async function POST(request: NextRequest) {
             wallet = newWallet
         }
 
-        // ── Create (or reuse, on OTP retry) the payment intent ────────────────
+        // â”€â”€ Create (or reuse, on OTP retry) the payment intent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const reference = existingRef || `UTIL-${generateReferenceCode()}`
         let paymentId: string | null = null
 
@@ -157,7 +164,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Everything processUtilityDirectOrder needs to build the order. The
-        // sessionId is deliberately absent — see the note at the top of this file.
+        // sessionId is deliberately absent â€” see the note at the top of this file.
         const intentMetadata = {
             kind: 'utility_order',
             user_id: userId,
@@ -199,7 +206,7 @@ export async function POST(request: NextRequest) {
 
         const description = `ARHMS ${intent.label} - ${intent.accountNumber}`
 
-        // ── PAYSTACK ──────────────────────────────────────────────────────────
+        // â”€â”€ PAYSTACK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (gateway === 'paystack') {
             if (!process.env.PAYSTACK_SECRET_KEY || !process.env.NEXT_PUBLIC_APP_URL) {
                 console.error('[UtilityGatewayInit] Paystack env vars missing')
@@ -247,7 +254,48 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // ── HUBTEL ────────────────────────────────────────────────────────────
+        // â”€â”€ PAYSTACK MOBILE MONEY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        if (gateway === 'paystack_momo') {
+            if (!momoPhone || !momoNetwork || !paystackMomoProviderFor(momoNetwork)) {
+                return NextResponse.json({ error: 'Valid Mobile Money network is required' }, { status: 400 })
+            }
+
+            const finish = async (result: MomoChargeResult) => {
+                if (!result.ok) {
+                    if (result.safeToMarkFailed && !existingRef) {
+                        await supabase.from('wallet_payments')
+                            .update({ status: 'failed' })
+                            .eq('id', paymentId)
+                            .eq('status', 'pending')
+                    }
+                    return NextResponse.json(result.body, { status: result.httpStatus })
+                }
+                if (result.outcome === 'paid') {
+                    const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                    await processUtilityDirectOrder(reference)
+                }
+                return NextResponse.json({ ...result.body, amount: totalAmount, fee: gatewayFee })
+            }
+
+            if (otpCode && existingRef) {
+                if (!await assertOwnPendingPayment(supabase, existingRef, userId)) {
+                    return NextResponse.json({ error: 'That payment is no longer waiting for a code' }, { status: 404 })
+                }
+                return finish(await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) }))
+            }
+
+            return finish(await startPaystackMomoCharge({
+                reference,
+                amountGhs: totalAmount,
+                payerPhone: momoPhone,
+                network: momoNetwork,
+                email: profile?.email,
+                metadata: { user_id: userId, kind: 'utility_order', service: intent.service },
+                userId,
+            }))
+        }
+
+        // â”€â”€ HUBTEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (gateway === 'hubtel') {
             if (!momoNetwork || !HUBTEL_CHANNEL_MAP[momoNetwork]) {
                 return NextResponse.json({ error: 'Valid Mobile Money network is required' }, { status: 400 })
@@ -308,7 +356,7 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // ── PAYSWITCH ─────────────────────────────────────────────────────────
+        // â”€â”€ PAYSWITCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (gateway === 'payswitch') {
             if (!momoPhone || !momoNetwork || !PAYSWITCH_CHANNEL_MAP[momoNetwork]) {
                 return NextResponse.json({ error: 'Valid Mobile Money phone number and network are required' }, { status: 400 })
@@ -346,7 +394,7 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // ── MOOLRE ────────────────────────────────────────────────────────────
+        // â”€â”€ MOOLRE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (!momoPhone || !momoNetwork || !MOOLRE_PAYMENT_CHANNEL_MAP[momoNetwork]) {
             return NextResponse.json(
                 { error: 'Valid MoMo phone number and network are required for mobile money payments' },
@@ -364,7 +412,7 @@ export async function POST(request: NextRequest) {
             otpCode,
         })
 
-        // OTP just verified — send the actual payment request
+        // OTP just verified â€” send the actual payment request
         if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
             moolreResponse = await moolreInitiatePayment({
                 amount: totalAmount,
