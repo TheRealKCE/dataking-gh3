@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import {
     Wallet,
     Plus,
@@ -670,6 +671,48 @@ function WalletContent() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* The gateway asked for a one-time code. Every other checkout in the app
+                has had this dialog; this page had the state, the handler and the
+                auto-submit effect but nothing to type into, so a code that arrived
+                could never be entered. Telecel and AirtelTigo take this path far more
+                often than MTN, which is why it went unnoticed. */}
+            <Dialog
+                open={otpRequired}
+                onOpenChange={(open) => { if (!open) { setOtpRequired(false); setOtpCode('') } }}
+            >
+                <DialogContent className="w-[95%] max-w-sm rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Enter OTP</DialogTitle>
+                        <DialogDescription>
+                            Your network sent a one-time code to {paymentPhone || 'your phone'}. Enter it to authorise this top-up.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        autoFocus
+                        inputMode="numeric"
+                        placeholder="Enter OTP"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                        className="text-center text-lg tracking-widest"
+                    />
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => { setOtpRequired(false); setOtpCode('') }}
+                        >
+                            Cancel
+                        </Button>
+                        {/* A 6-digit code submits itself via the effect above; the
+                            button is for networks that send a shorter one. */}
+                        <Button onClick={handleVerifyOtp} disabled={isProcessing || !otpCode.trim()}>
+                            {isProcessing ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                            ) : 'Verify'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
         </div>
     )
