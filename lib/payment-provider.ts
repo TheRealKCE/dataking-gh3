@@ -52,7 +52,7 @@ export const SCOPE_SETTING_KEY: Record<PaymentScope, string> = {
  * is the rollback.
  */
 export const SCOPE_PROVIDERS: Record<PaymentScope, readonly PaymentProvider[]> = {
-    web: ['moolre', 'hubtel', 'paystack', 'payswitch'],
+    web: ['moolre', 'hubtel', 'paystack', 'paystack_momo', 'payswitch'],
     shop: ['moolre', 'hubtel', 'paystack', 'payswitch'],
     classifieds: ['moolre', 'paystack', 'payswitch'],
     ussd: ['paystack_momo', 'hubtel'],

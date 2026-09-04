@@ -16,7 +16,7 @@ import {
 } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
-import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import { paystackMomoProviderFor, verifyTransaction } from '@/lib/paystack-momo-service'
 import {
     startPaystackMomoCharge,
     submitPaystackMomoOtp,
@@ -434,19 +434,18 @@ export async function GET(request: NextRequest) {
             if (payswitchStatus.outcome === 'failed') {
                 return NextResponse.json({ success: false, status: 'failed' })
             }
-        } else if (paymentProvider === 'paystack') {
-            const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-                headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
-            })
-            const verifyData = await verifyRes.json().catch(() => null)
+        } else if (paymentProvider === 'paystack' || paymentProvider === 'paystack_momo') {
+            // Both Paystack rails verify the same way — one merchant account, one
+            // reference namespace. Routed through verifyTransaction() rather than the
+            // inline fetch this used to hold, so there is a single place that decides
+            // what each Paystack status means. Note it treats an unbooked charge as
+            // pending rather than failed, which the raw fetch did not.
+            const verified = await verifyTransaction(reference)
 
-            if (!verifyData?.status) {
-                return NextResponse.json({ success: true, status: 'pending' })
-            }
-            if (verifyData.data?.status === 'failed' || verifyData.data?.status === 'abandoned') {
+            if (verified.outcome === 'failed') {
                 return NextResponse.json({ success: false, status: 'failed' })
             }
-            if (verifyData.data?.status !== 'success') {
+            if (verified.outcome !== 'paid') {
                 return NextResponse.json({ success: true, status: 'pending' })
             }
         } else {
