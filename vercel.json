@@ -34,7 +34,7 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/verify-ussd-payments",
+      "path": "/api/cron/verify-paystack-momo-payments",
       "schedule": "*/5 * * * *"
     },
     {
