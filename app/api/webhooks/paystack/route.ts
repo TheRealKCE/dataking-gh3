@@ -1,24 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
+import { Redis } from '@upstash/redis'
+import { clearPaystackMomoPending } from '@/lib/paystack-momo-checkout'
+import { clearPaystackMomoPromptCount } from '@/lib/hubtel-prompt-limit'
 import crypto from 'crypto'
 
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+const redis = Redis.fromEnv()
 
 export async function POST(request: NextRequest) {
     try {
         const supabase = createServerClient()
+
+        // Read inside the handler rather than asserting at module scope. A missing
+        // key used to surface as an opaque crash inside createHmac; this names the
+        // variable, which is the difference between a five-minute fix and an hour.
+        const secretKey = process.env.PAYSTACK_SECRET_KEY
+        if (!secretKey) {
+            console.error('[PaystackWebhook] PAYSTACK_SECRET_KEY is not set — cannot verify signatures')
+            return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
+        }
 
         // Verify webhook signature
         const signature = request.headers.get('x-paystack-signature')
         const body = await request.text()
 
         const hash = crypto
-            .createHmac('sha512', PAYSTACK_SECRET_KEY)
+            .createHmac('sha512', secretKey)
             .update(body)
             .digest('hex')
 
-        if (hash !== signature) {
+        // Length-guarded timingSafeEqual rather than !==. The comparison is against
+        // an attacker-supplied header, and a variable-time compare leaks how much of
+        // a guessed signature was correct.
+        const signatureBuffer = Buffer.from(signature ?? '', 'utf8')
+        const hashBuffer = Buffer.from(hash, 'utf8')
+        const signatureValid =
+            signatureBuffer.length === hashBuffer.length
+            && crypto.timingSafeEqual(signatureBuffer, hashBuffer)
+
+        if (!signatureValid) {
             console.error('[PaystackWebhook] Invalid webhook signature')
             return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
         }
@@ -28,6 +49,17 @@ export async function POST(request: NextRequest) {
         if (event.event === 'charge.success') {
             const { reference, amount: paidAmountKobo } = event.data
             const metadata = event.data.metadata
+
+            // A number that just approved a prompt has proven it wants them, so its
+            // earlier prompts should not be held against it. Done before the routing
+            // below because every branch returns from inside itself.
+            const approvedMsisdn =
+                event.data?.authorization?.mobile_money_number
+                || metadata?.payer_msisdn
+                || metadata?.payer_phone
+            if (approvedMsisdn) {
+                await clearPaystackMomoPromptCount(String(approvedMsisdn)).catch(() => {})
+            }
 
             // o. USSD SALES: USSD- references are in-session USSD purchases paid by
             // Paystack Mobile Money. Checked FIRST because, like SHOP-, they have no
@@ -109,9 +141,40 @@ export async function POST(request: NextRequest) {
             // They are NOT stored in wallet_payments, so we must handle them separately
             // before the DB lookup to avoid "Payment not found" errors.
             if (reference && reference.startsWith('SHOP-')) {
+                // Hosted checkout echoes back the whole metadata object we sent at
+                // init. The MoMo rail deliberately sends a compact payload instead —
+                // ids and slugs, no display text — so fall back to the copy in Redis,
+                // exactly as /api/shop/verify and the PaySwitch sweep already do.
+                let shopMetadata = metadata
+                if (!shopMetadata?.shop_id) {
+                    const raw = await redis.get<any>(`shop:meta:${reference}`)
+                    shopMetadata = typeof raw === 'string' ? JSON.parse(raw) : raw
+                }
+
+                if (!shopMetadata?.shop_id) {
+                    // Say so loudly and leave it for a human rather than acking a paid
+                    // order into silence. The money is in and nothing can price it.
+                    console.error('[PaystackWebhook] SHOP- paid but metadata is gone:', reference)
+                    const { logCallback } = await import('@/lib/hubtel-payment-log')
+                    await logCallback({
+                        clientReference: reference,
+                        status: 'failed',
+                        amount: paidAmountKobo / 100,
+                        message: 'Paid but the shop order metadata could not be found.',
+                        raw: event.data,
+                    })
+                    return NextResponse.json({ received: true })
+                }
+
                 const { processShopOrder } = await import('@/lib/shop-order-processor')
                 console.log('[PaystackWebhook] Routing shop order payment')
-                await processShopOrder(reference, metadata, paidAmountKobo, metadata?.slug)
+                await processShopOrder(
+                    reference,
+                    shopMetadata,
+                    paidAmountKobo,
+                    shopMetadata.slug ?? shopMetadata.shop_slug
+                )
+                await clearPaystackMomoPending(reference)
                 return NextResponse.json({ received: true })
             }
 

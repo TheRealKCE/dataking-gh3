@@ -53,8 +53,8 @@ export const SCOPE_SETTING_KEY: Record<PaymentScope, string> = {
  */
 export const SCOPE_PROVIDERS: Record<PaymentScope, readonly PaymentProvider[]> = {
     web: ['moolre', 'hubtel', 'paystack', 'paystack_momo', 'payswitch'],
-    shop: ['moolre', 'hubtel', 'paystack', 'payswitch'],
-    classifieds: ['moolre', 'paystack', 'payswitch'],
+    shop: ['moolre', 'hubtel', 'paystack', 'paystack_momo', 'payswitch'],
+    classifieds: ['moolre', 'paystack', 'paystack_momo', 'payswitch'],
     ussd: ['paystack_momo', 'hubtel'],
 }
 

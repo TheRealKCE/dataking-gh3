@@ -13,6 +13,13 @@ import {
 import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 import { shopFeeSettingKeys, resolveShopFeePercent } from '@/lib/gateway-fees'
+import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import {
+    startPaystackMomoCharge,
+    submitPaystackMomoOtp,
+    markPaystackMomoPending,
+    clearPaystackMomoPending,
+} from '@/lib/paystack-momo-checkout'
 import { checkMtnRegistration, registrationRequiredBody } from '@/lib/mtn-registration-gate'
 
 // Redis client for distributed idempotency across all serverless instances.
@@ -395,6 +402,68 @@ export async function POST(request: NextRequest) {
                 reference: shopRef,
                 message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
             })
+        }
+
+        // ── PAYSTACK MOBILE MONEY BRANCH ─────────────────────────────────────────
+        if (shopProvider === 'paystack_momo') {
+            if (!paystackMomoProviderFor(paymentNetwork)) {
+                return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+            }
+
+            // An OTP finishes the charge that already exists. No new order, no second
+            // Redis write, and above all no second charge.
+            if (otpCode && existingRef) {
+                const rawMeta = await redis.get<any>(`shop:meta:${existingRef}`)
+                const meta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta
+                // A guest has no account to bind this to and the references are
+                // guessable, so ownership is proved by the payer's own number. Without
+                // it anyone who guesses a reference can burn a stranger's OTP attempts.
+                if (!meta || String(meta.payer_phone || '') !== String(payerClean)) {
+                    return NextResponse.json(
+                        { error: 'That payment is no longer waiting for a code' },
+                        { status: 404 }
+                    )
+                }
+                const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) })
+                return NextResponse.json(otpResult.body, otpResult.ok ? undefined : { status: otpResult.httpStatus })
+            }
+
+            // Metadata must land in Redis BEFORE the prompt — the callback reads it
+            // and a fast approval can otherwise beat the write.
+            if (!existingRef) {
+                await redis.set(
+                    `shop:meta:${shopRef}`,
+                    JSON.stringify({ ...fullMetadata, payer_msisdn: payerClean }),
+                    { ex: 86400 }
+                )
+                // There is no wallet_payments row for a guest order, so this marker is
+                // the only thing the reconciliation sweep can find it by.
+                await markPaystackMomoPending(shopRef, { kind: 'shop', slug: shopSlug })
+            }
+
+            const charge = await startPaystackMomoCharge({
+                reference: shopRef,
+                // totalAmount is in PESEWAS in this route and only this route —
+                // every other checkout holds cedis, and chargeMobileMoney multiplies
+                // by 100 internally. A missed division charges the guest 100x.
+                amountGhs: totalAmount / 100,
+                payerPhone: payerClean,
+                network: paymentNetwork,
+                email: validatedGuestEmail || undefined,
+                // Machine-shaped only. The settle path reads the real metadata back
+                // from Redis, so the shop name never has to survive a payment field.
+                metadata: { kind: 'shop', shop_id: shop.id, shop_slug: shopSlug, ref: shopRef },
+            })
+
+            if (!charge.ok) {
+                if (charge.safeToMarkFailed && !existingRef) {
+                    await redis.del(`shop:meta:${shopRef}`)
+                    await clearPaystackMomoPending(shopRef)
+                }
+                return NextResponse.json(charge.body, { status: charge.httpStatus })
+            }
+
+            return NextResponse.json(charge.body)
         }
 
         // ── PAYSWITCH BRANCH ─────────────────────────────────────────────────────

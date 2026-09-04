@@ -307,6 +307,24 @@ export async function markPaystackMomoPending(
     }
 }
 
+/**
+ * Whether this reference is an outstanding Paystack MoMo charge.
+ *
+ * The guest verify routes use it to decide which gateway to ask. Fails CLOSED — a
+ * Redis blip answers "not ours", which sends the caller down its original Moolre
+ * path rather than asking Paystack about a Moolre reference. The wrong answer that
+ * way costs a poll cycle; the wrong answer the other way would report a live charge
+ * as unverifiable.
+ */
+export async function isPaystackMomoPending(reference: string): Promise<boolean> {
+    try {
+        return (await redis.get(`paystack_momo:pending:${reference}`)) !== null
+    } catch (e) {
+        console.error('[PaystackMomo] could not read pending marker:', reference, e)
+        return false
+    }
+}
+
 export async function clearPaystackMomoPending(reference: string): Promise<void> {
     try {
         await redis.del(`paystack_momo:pending:${reference}`)
