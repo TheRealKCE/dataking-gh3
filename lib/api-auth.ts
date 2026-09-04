@@ -58,6 +58,23 @@ function fingerprintKey(fullKey: string): string {
     return createHash('sha256').update(fullKey).digest('hex')
 }
 
+/** Tag a Commission Services key carries. Standard keys keep the original kf_live_. */
+export const COMMISSION_KEY_TAG = 'kf_cs_live_'
+
+/**
+ * How many leading characters of a key are stored as its searchable prefix.
+ *
+ * Standard keys are 'kf_live_' (8) plus 8 hex = 16, and there are live keys in the
+ * database stored at exactly that length, so 16 cannot change. Commission keys carry
+ * a longer tag, and slicing them at 16 would leave only 5 random characters — about
+ * a million values, close enough to collide against a UNIQUE constraint once a few
+ * thousand keys exist. Taking the tag plus 8 hex gives both kinds the same 4-billion
+ * space regardless of how long the tag is.
+ */
+function prefixLengthFor(fullKey: string): number {
+    return fullKey.startsWith(COMMISSION_KEY_TAG) ? COMMISSION_KEY_TAG.length + 8 : 16
+}
+
 function normaliseKind(raw: unknown): ApiKeyKind {
     return raw === 'commission' ? 'commission' : 'standard'
 }
@@ -101,7 +118,7 @@ export async function validateApiKey(
         return { ...cached, supabase }
     }
 
-    const keyPrefix = fullKey.substring(0, 16)
+    const keyPrefix = fullKey.substring(0, prefixLengthFor(fullKey))
     console.error(`[API Auth] Looking up key prefix: ${keyPrefix}`)
 
     const { data: keyRow, error: keyError } = await (supabase
@@ -269,15 +286,24 @@ export function getClientIp(request: NextRequest): string | null {
 // only place they actually run — and keying on the API key rather than the IP is
 // more correct anyway, since a partner's whole server farm shares one address.
 
-export type RateLimitBucket = 'purchase' | 'bulk' | 'balance' | 'status' | 'query' | 'commission'
+export type RateLimitBucket =
+    | 'purchase' | 'bulk' | 'balance' | 'status' | 'commission'
+    | 'billers' | 'lookup' | 'pay' | 'orders'
 
 const DEFAULT_LIMITS: Record<RateLimitBucket, number> = {
+    // Data API
     purchase:   20,
     bulk:       10,
     balance:    60,
     status:     60,
-    query:      20,
-    commission: 20,
+    commission: 30,
+    // Commission Services — the published per-endpoint limits. `lookup` and `pay`
+    // are deliberately tight: a lookup is a paid third-party call that would also
+    // enumerate strangers' names if scanned, and a payment cannot be recalled.
+    billers:    30,
+    lookup:     10,
+    pay:         6,
+    orders:     30,
 }
 
 let rateLimitRedis: Redis | null = null

@@ -13,7 +13,6 @@
 import { createServerClient } from '@/lib/supabase'
 import { sendAirtimeCompletedSMS } from '@/lib/sms-service'
 import { sendPushToUser } from '@/lib/web-push'
-import { creditCommissionForOrder } from '@/lib/commission-earning'
 import { queueApiWebhook } from '@/lib/api-webhook'
 
 export type AirtimeFinalStatus = 'processing' | 'completed' | 'failed'
@@ -72,13 +71,9 @@ export async function finalizeAirtimeOrder(
         return { success: false, error: updateError.message }
     }
 
-    // ── Commission ───────────────────────────────────────────────────────────
-    // Placed here rather than in the API route because all three callers of this
-    // function — dispatcher, Hubtel callback, admin button — must earn identically.
-    // A no-op unless the order was placed with a Commission Services key.
-    if (status === 'completed') {
-        await creditCommissionForOrder({ source: 'airtime', orderId })
-    }
+    // No commission is earned on airtime. It is sold through the STANDARD API key
+    // like a data bundle — priced with the ordinary role fee — and only utility bill
+    // payments pay a Commission Services partner a share. See lib/commission-earning.
 
     // Tell the partner, if this order came from an API key with a webhook configured.
     // Terminal states only — 'processing' is not news.

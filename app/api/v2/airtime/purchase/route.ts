@@ -10,13 +10,15 @@ import { triggerAirtimeFulfillment } from '@/lib/airtime-fulfillment-dispatcher'
 import { isAirtimeNetwork, isDuplicateReferenceError } from '@/lib/api-v2-networks'
 
 /**
- * Airtime top-up over the Commission Services key.
+ * Airtime top-up over the STANDARD key.
  *
- * Mirrors app/api/airtime/create/route.ts, with three deliberate differences:
+ * Airtime is sold like a data bundle: the caller is charged the ordinary role fee and
+ * earns nothing extra. Commission Services is a separate product covering utility
+ * bills only, and a commission key is rejected here with 403 like anywhere else
+ * outside /api/v2/utilities/*.
  *
- *  - The fee rate comes from airtime_fee_<network>_api, which ships at 0. A commission
- *    partner pays the face value and is compensated through the commission wallet
- *    instead of being charged a markup and handed part of it back.
+ * Mirrors app/api/airtime/create/route.ts, with two deliberate differences:
+ *
  *  - No beneficiary SMS, admin email or admin SMS. Those exist so a human buyer and
  *    the ops team can see a one-off order; at API volume they are noise and cost.
  *    The completion SMS still fires from lib/airtime-order-completion.ts.
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
     const ip = getClientIp(request)
 
-    const auth = await validateApiKey(request, { version: 'v2', kind: 'commission' })
+    const auth = await validateApiKey(request, { version: 'v2', kind: 'standard' })
     if (isApiError(auth)) {
         logApiRequest({ apiKeyId: null, userId: null, endpoint: ENDPOINT, method: 'POST', statusCode: (auth as any).status, responseTimeMs: Date.now() - startTime, ip, errorMessage: 'Auth failed' })
         return auth
@@ -99,12 +101,16 @@ export async function POST(request: NextRequest) {
         }
     }
 
+    // Same fee band the dashboard uses, so an agent is charged over the API exactly
+    // what they are charged in the app.
+    const feeBand: 'agent' | 'customer' = userRole === 'agent' ? 'agent' : 'customer'
+
     const networkKey = NETWORK_KEY_MAP[network]
     const { data: settingsRows } = await (supabase.from('admin_settings') as any)
         .select('key, value')
         .in('key', [
             `airtime_enabled_${networkKey}`,
-            `airtime_fee_${networkKey}_api`,
+            `airtime_fee_${networkKey}_${feeBand}`,
             'airtime_min_amount',
             'airtime_max_amount',
         ])
@@ -127,8 +133,8 @@ export async function POST(request: NextRequest) {
         return apiError(400, `Maximum airtime amount is GHS ${maxAmount.toFixed(2)}`)
     }
 
-    // Fee is always resolved server-side. Defaults to 0 for API callers.
-    const feeRate = parseFloat(settings[`airtime_fee_${networkKey}_api`] || '0')
+    // Fee is always resolved server-side, never taken from the request.
+    const feeRate = parseFloat(settings[`airtime_fee_${networkKey}_${feeBand}`] || '5')
 
     let airtimeAmount: number
     let feeAmount: number

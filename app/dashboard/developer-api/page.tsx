@@ -87,7 +87,8 @@ const LANGS: { id: Lang; label: string }[] = [
 ]
 
 const BASE = 'https://www.arhmsgh.com'
-const KEY  = 'YOUR_API_KEY'
+const STANDARD_KEY_SAMPLE   = 'kf_live_your_api_key_here'
+const COMMISSION_KEY_SAMPLE = 'kf_cs_live_your_commission_key_here'
 
 const KEY_META: Record<KeyKind, { title: string; blurb: string; empty: string; icon: React.ElementType }> = {
     standard: {
@@ -98,8 +99,8 @@ const KEY_META: Record<KeyKind, { title: string; blurb: string; empty: string; i
     },
     commission: {
         title: 'Commission Services Key',
-        blurb: 'For airtime and utility bill endpoints. You earn a share of each transaction, paid into your Commission Wallet.',
-        empty: 'Generate a commission key to start earning on airtime and bill payments. No shop required.',
+        blurb: 'For utility bill endpoints. Pay bills at face value and earn a share of the platform commission, credited to your Commission Wallet.',
+        empty: 'Generate a commission key to start earning on bill payments. No shop required.',
         icon: Coins,
     },
 }
@@ -117,10 +118,13 @@ interface Endpoint {
     desc: string
     body?: Record<string, any>
     query?: string
+    /** Which key the snippet should show in the Authorization header. */
+    keyKind?: KeyKind
 }
 
 function snippetsFor(ep: Endpoint): Record<Lang, string> {
     const url = `${BASE}${ep.path}${ep.query ? `?${ep.query}` : ''}`
+    const KEY = ep.keyKind === 'commission' ? COMMISSION_KEY_SAMPLE : STANDARD_KEY_SAMPLE
     const json = ep.body ? JSON.stringify(ep.body, null, 2) : null
     const compact = ep.body ? JSON.stringify(ep.body) : null
 
@@ -167,38 +171,52 @@ const STANDARD_ENDPOINTS: Endpoint[] = [
         ] },
     },
     {
+        icon: Phone, method: 'POST', path: '/api/v2/airtime/purchase', label: 'Send airtime',
+        desc: 'Networks: MTN, Telecel, AT. Priced with your ordinary role fee, same as the dashboard. Set `use_exact_amount` to charge the fee on top instead of taking it out of the amount.',
+        body: { network: 'MTN', amount: 10, recipient: '0551617309', reference: 'air_001' },
+    },
+    {
         icon: Wallet, method: 'GET', path: '/api/v2/wallet/balance', label: 'Wallet balance',
         desc: 'Your spending balance in GHS. Top up from the dashboard wallet page.',
     },
     {
         icon: Clock, method: 'GET', path: '/api/v2/orders/order_001', label: 'Order status',
-        desc: 'Works for data, airtime and utility orders alike — the `type` field says which you got. Status flows pending → processing → completed | failed.',
+        desc: 'Data and airtime orders — the `type` field says which you got. Bill payments have their own endpoint on the Commission API tab. Status flows pending → processing → completed | failed.',
     },
 ]
 
 const COMMISSION_ENDPOINTS: Endpoint[] = [
     {
-        icon: Phone, method: 'POST', path: '/api/v2/airtime/purchase', label: 'Send airtime',
-        desc: 'Networks: MTN, Telecel, AT. Set `use_exact_amount` to charge the fee on top instead of taking it out of the amount.',
-        body: { network: 'MTN', amount: 10, recipient: '0551617309', reference: 'air_001' },
+        icon: Package, method: 'GET', path: '/api/v2/utilities/billers', label: 'Biller catalogue',
+        desc: 'Every biller, including ones an admin has switched off, so your picker can grey them out instead of guessing. Read min_amount / max_amount from here rather than hardcoding them.',
+        keyKind: 'commission',
     },
     {
-        icon: Receipt, method: 'POST', path: '/api/v2/utilities/query', label: 'Verify an account',
-        desc: 'Resolves a smartcard, IUC or meter number to the customer name. Show it back to your user before charging — a mistyped digit belongs to somebody else. ECG returns a list of meters to pick from.',
-        body: { service: 'dstv', account_number: '1234567890' },
+        icon: Receipt, method: 'GET', path: '/api/v2/utilities/lookup', label: 'Verify an account',
+        desc: 'Resolves a smartcard, IUC or meter number to the customer name. Show it back to your user before charging — a mistyped digit belongs to somebody else. ECG answers a phone number with a list of meters in `meters`; every other biller fills `account_name` instead. 404 = no such account, 502 = provider unreachable, retry.',
+        query: 'biller=dstv&account=7041234567',
+        keyKind: 'commission',
     },
     {
         icon: Receipt, method: 'POST', path: '/api/v2/utilities/pay', label: 'Pay a bill',
-        desc: 'Services: dstv, gotv, startimes, ecg, ghanawater. ECG and Ghana Water need `phone`; Ghana Water also needs `email`. The account is re-verified server-side before any money moves.',
-        body: { service: 'dstv', account_number: '1234567890', amount: 250, reference: 'bill_001' },
+        desc: 'Billers: ecg, ghana_water, dstv, gotv, startimes. ECG and Ghana Water need `phone`; Ghana Water also needs `email` for its receipt. For ECG, `account` is the specific meter from lookup. The account is re-verified server-side before any money moves.',
+        body: { biller: 'dstv', account: '7041234567', amount: 65.00, reference: 'bill_dstv_7041234567_01' },
+        keyKind: 'commission',
+    },
+    {
+        icon: Clock, method: 'GET', path: '/api/v2/utilities/orders/UTIL-DSTV-3f9a2b1c4d5e6f70', label: 'Bill status',
+        desc: 'Poll with the reference from the /pay RESPONSE — ours, not the one you sent. commission_earned stays null until the order completes.',
+        keyKind: 'commission',
     },
     {
         icon: Coins, method: 'GET', path: '/api/v2/commission/balance', label: 'Commission balance',
         desc: 'What you have earned. Separate from your spending wallet.',
+        keyKind: 'commission',
     },
     {
         icon: Activity, method: 'GET', path: '/api/v2/commission/transactions', label: 'Earnings statement',
-        desc: 'One row per order that paid a commission. Paged — pass ?page= and ?limit= (max 100), or ?source=airtime|utility.',
+        desc: 'One row per bill payment that paid a commission. Paged — pass ?page= and ?limit= (max 100).',
+        keyKind: 'commission',
     },
 ]
 
@@ -535,11 +553,24 @@ export default function DeveloperApiPage() {
                     {tab === 'commission' && (
                         <div className="rounded-xl border border-amber-400/40 bg-amber-50/50 dark:bg-amber-900/10 p-3 text-xs text-amber-800 dark:text-amber-300 flex gap-2">
                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                            <span>
-                                Airtime and bill payments are irreversible once the provider accepts them.
-                                Verify the account with <code className="font-mono">/utilities/query</code> and show
-                                the returned name to your user before charging.
-                            </span>
+                            <div className="space-y-2">
+                                <p>
+                                    Bill payments are irreversible once the provider accepts them.
+                                    Verify with <code className="font-mono">/utilities/lookup</code> and show the
+                                    returned name to your user before charging.
+                                </p>
+                                <p>
+                                    <code className="font-mono">reference</code> on <code className="font-mono">/pay</code> is
+                                    a pure idempotency key, not a distinct-payment key. Reusing one — even with a
+                                    different biller, account or amount — returns the ORIGINAL order and never
+                                    charges again; it does not re-validate what you sent. Use a unique reference per
+                                    bill, and reuse one only to retry the exact same payment after a timeout.
+                                </p>
+                                <p>
+                                    These endpoints accept the Commission Services key only, and it is rejected with
+                                    403 everywhere else on <code className="font-mono">/api/v2/*</code>.
+                                </p>
+                            </div>
                         </div>
                     )}
 
@@ -588,11 +619,11 @@ X-Arhms-Signature: sha256=<hmac>
 }`}
                                     </pre>
                                     <p className="text-xs text-muted-foreground mt-2">
-                                        Events: <code className="font-mono">airtime.completed</code>,{' '}
-                                        <code className="font-mono">airtime.failed</code>,{' '}
-                                        <code className="font-mono">utility.completed</code>,{' '}
+                                        Events: <code className="font-mono">utility.completed</code>,{' '}
                                         <code className="font-mono">utility.failed</code>,{' '}
-                                        <code className="font-mono">utility.refunded</code>.
+                                        <code className="font-mono">utility.refunded</code>,{' '}
+                                        <code className="font-mono">airtime.completed</code>,{' '}
+                                        <code className="font-mono">airtime.failed</code>.
                                     </p>
                                 </div>
                             </div>

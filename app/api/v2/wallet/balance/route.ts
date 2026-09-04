@@ -5,11 +5,12 @@ import {
 } from '@/lib/api-auth'
 
 /**
- * Spending balance. This is the wallet orders are charged against — commission
- * EARNINGS live in a different wallet, at /api/v2/commission/balance.
+ * Spending balance — the wallet orders are charged against.
  *
- * Readable with either key kind: a commission partner pays for bills out of this
- * balance, so they need to be able to check it.
+ * Standard key only, like every endpoint outside /api/v2/utilities/*. A commission
+ * partner's bills are debited from this same wallet, but they read its balance
+ * through the dashboard rather than here; their API surface is the four documented
+ * Commission Services endpoints plus /api/v2/commission/*.
  */
 const ENDPOINT = '/api/v2/wallet/balance'
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const startTime = Date.now()
     const ip = getClientIp(request)
 
-    const auth = await validateApiKey(request, { version: 'v2' })
+    const auth = await validateApiKey(request, { version: 'v2', kind: 'standard' })
     if (isApiError(auth)) {
         logApiRequest({ apiKeyId: null, userId: null, endpoint: ENDPOINT, method: 'GET', statusCode: (auth as any).status, responseTimeMs: Date.now() - startTime, ip, errorMessage: 'Auth failed' })
         return auth

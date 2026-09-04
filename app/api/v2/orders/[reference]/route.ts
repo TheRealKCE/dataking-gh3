@@ -5,14 +5,14 @@ import {
 } from '@/lib/api-auth'
 
 /**
- * Status of any order placed through the API, whatever kind it was.
+ * Status of a data or airtime order, by reference.
  *
- * v1 only knew about the `orders` table. v2 can place airtime and utility orders too,
- * and those live in their own tables, so one reference has three places to look. The
- * `type` field in the response tells the caller which they got.
+ * v1 only knew about the `orders` table; airtime lives in its own, so one reference
+ * has two places to look and the `type` field says which was found.
  *
- * Accepts either key kind — a partner integrating both surfaces should not need to
- * decide which key to poll with.
+ * Standard key only. Bill payments are deliberately NOT reachable here — they have
+ * their own endpoint at /api/v2/utilities/orders/:reference, gated on the commission
+ * key, which keeps the two products' surfaces from bleeding into each other.
  */
 const ENDPOINT = '/api/v2/orders/:reference'
 
@@ -23,7 +23,7 @@ export async function GET(
     const startTime = Date.now()
     const ip = getClientIp(request)
 
-    const auth = await validateApiKey(request, { version: 'v2' })
+    const auth = await validateApiKey(request, { version: 'v2', kind: 'standard' })
     if (isApiError(auth)) {
         logApiRequest({ apiKeyId: null, userId: null, endpoint: ENDPOINT, method: 'GET', statusCode: (auth as any).status, responseTimeMs: Date.now() - startTime, ip, errorMessage: 'Auth failed' })
         return auth
@@ -108,31 +108,6 @@ export async function GET(
         })
     }
 
-    const utilityOrder = await lookup(
-        'utility_orders',
-        'id, reference_code, status, payment_status, service, account_number, account_name, bill_amount, fee_amount, total_paid, created_at, updated_at, fulfillment_note'
-    )
-
-    if (utilityOrder) {
-        logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'GET', statusCode: 200, responseTimeMs: Date.now() - startTime, ip })
-        return apiSuccessV2({
-            type:           'utility',
-            order_id:       utilityOrder.id,
-            reference:      utilityOrder.reference_code,
-            status:         utilityOrder.status,
-            payment_status: utilityOrder.payment_status,
-            service:        utilityOrder.service,
-            account_number: utilityOrder.account_number,
-            account_name:   utilityOrder.account_name,
-            bill_amount:    utilityOrder.bill_amount,
-            fee_amount:     utilityOrder.fee_amount,
-            total_paid:     utilityOrder.total_paid,
-            note:           utilityOrder.fulfillment_note,
-            created_at:     utilityOrder.created_at,
-            updated_at:     utilityOrder.updated_at,
-        })
-    }
-
     logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'GET', statusCode: 404, responseTimeMs: Date.now() - startTime, ip, errorMessage: 'Order not found' })
-    return apiError(404, `No order found with reference: ${reference}`)
+    return apiError(404, `No order found with reference: ${reference}. Bill payments are at /api/v2/utilities/orders/${reference}.`)
 }

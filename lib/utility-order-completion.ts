@@ -174,7 +174,7 @@ export async function finalizeUtilityOrder(
     // finalStatus, not `status`: an order that was refunded out from under a
     // 'completed' call paid no bill and earns nothing.
     if (finalStatus === 'completed') {
-        await creditCommissionForOrder({ source: 'utility', orderId })
+        await creditCommissionForOrder({ orderId })
     }
 
     // Tell the partner, if this order came from an API key with a webhook configured.

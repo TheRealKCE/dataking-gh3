@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
+import { COMMISSION_KEY_TAG } from '@/lib/api-auth'
 
 // GET    — key metadata (prefix, status, last_used_at) for every kind. Never the full key.
 // POST   — generate a key of one kind. Returns the full key ONCE.
@@ -18,11 +19,16 @@ import bcrypt from 'bcryptjs'
 const KINDS = ['standard', 'commission'] as const
 type Kind = typeof KINDS[number]
 
-/** kf_live_ for data, kf_comm_ for commission services. Both 8 chars, so the
- *  16-character prefix lookup in lib/api-auth.ts is unchanged. */
+/**
+ * kf_live_ for data, kf_cs_live_ for commission services.
+ *
+ * The tags are different lengths, so the stored prefix is the tag plus 8 hex rather
+ * than a fixed 16 characters — see prefixLengthFor() in lib/api-auth.ts, which is the
+ * one place that has to agree with this.
+ */
 const KIND_TAG: Record<Kind, string> = {
     standard:   'kf_live_',
-    commission: 'kf_comm_',
+    commission: COMMISSION_KEY_TAG,
 }
 
 const KIND_NAME: Record<Kind, string> = {
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
 
         const randomPart = randomBytes(16).toString('hex')
         const fullKey = `${KIND_TAG[kind]}${randomPart}`
-        const keyPrefix = fullKey.substring(0, 16)
+        const keyPrefix = fullKey.substring(0, KIND_TAG[kind].length + 8)
         const keyHash = await bcrypt.hash(fullKey, 10)
 
         const supabase = createServerClient()
