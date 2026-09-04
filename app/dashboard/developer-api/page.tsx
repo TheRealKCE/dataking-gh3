@@ -122,32 +122,49 @@ interface Endpoint {
     keyKind?: KeyKind
 }
 
+/**
+ * Env-var names the snippets read the key from.
+ *
+ * The samples deliberately do NOT show a literal key. Copying a doc snippet verbatim
+ * is the most common way a key ends up committed to git — where deleting the line
+ * later does not remove it from history — or, in a bundled frontend, inlined into
+ * JavaScript served to every visitor. Showing the variable is the same amount of
+ * typing and fails safe.
+ */
+const ENV_VAR: Record<KeyKind, string> = {
+    standard:   'ARHMS_API_KEY',
+    commission: 'ARHMS_COMMISSION_KEY',
+}
+
 function snippetsFor(ep: Endpoint): Record<Lang, string> {
     const url = `${BASE}${ep.path}${ep.query ? `?${ep.query}` : ''}`
-    const KEY = ep.keyKind === 'commission' ? COMMISSION_KEY_SAMPLE : STANDARD_KEY_SAMPLE
+    const ENV = ENV_VAR[ep.keyKind ?? 'standard']
     const json = ep.body ? JSON.stringify(ep.body, null, 2) : null
     const compact = ep.body ? JSON.stringify(ep.body) : null
 
     return {
         curl: ep.body
-            ? `curl -X POST ${url} \\\n  -H "Authorization: ${KEY}" \\\n  -H "Content-Type: application/json" \\\n  -d '${compact}'`
-            : `curl -X GET "${url}" \\\n  -H "Authorization: ${KEY}"`,
+            ? `curl -X POST ${url} \\\n  -H "Authorization: $${ENV}" \\\n  -H "Content-Type: application/json" \\\n  -d '${compact}'`
+            : `curl -X GET "${url}" \\\n  -H "Authorization: $${ENV}"`,
 
+        // Marked server-side deliberately: /api/v2 sends Access-Control-Allow-Origin: *,
+        // so this call SUCCEEDS from a browser and looks correct — while shipping the
+        // key to everyone who opens DevTools.
         javascript: ep.body
-            ? `const res = await fetch('${url}', {\n  method: 'POST',\n  headers: {\n    'Authorization': '${KEY}',\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify(${json})\n})\nconst data = await res.json()`
-            : `const res = await fetch('${url}', {\n  headers: { 'Authorization': '${KEY}' }\n})\nconst data = await res.json()`,
+            ? `// Server-side only — never from browser code.\nconst res = await fetch('${url}', {\n  method: 'POST',\n  headers: {\n    'Authorization': process.env.${ENV},\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify(${json})\n})\nconst data = await res.json()`
+            : `// Server-side only — never from browser code.\nconst res = await fetch('${url}', {\n  headers: { 'Authorization': process.env.${ENV} }\n})\nconst data = await res.json()`,
 
         nodejs: ep.body
-            ? `const axios = require('axios')\n\nconst { data } = await axios.post(\n  '${url}',\n  ${json?.split('\n').join('\n  ')},\n  { headers: { Authorization: '${KEY}' } }\n)`
-            : `const axios = require('axios')\n\nconst { data } = await axios.get(\n  '${url}',\n  { headers: { Authorization: '${KEY}' } }\n)`,
+            ? `const axios = require('axios')\n\nconst { data } = await axios.post(\n  '${url}',\n  ${json?.split('\n').join('\n  ')},\n  { headers: { Authorization: process.env.${ENV} } }\n)`
+            : `const axios = require('axios')\n\nconst { data } = await axios.get(\n  '${url}',\n  { headers: { Authorization: process.env.${ENV} } }\n)`,
 
         python: ep.body
-            ? `import requests\n\nres = requests.post(\n    '${url}',\n    headers={'Authorization': '${KEY}'},\n    json=${json?.replace(/true/g, 'True').replace(/false/g, 'False').split('\n').join('\n    ')}\n)\nprint(res.json())`
-            : `import requests\n\nres = requests.get(\n    '${url}',\n    headers={'Authorization': '${KEY}'}\n)\nprint(res.json())`,
+            ? `import os, requests\n\nres = requests.post(\n    '${url}',\n    headers={'Authorization': os.environ['${ENV}']},\n    json=${json?.replace(/true/g, 'True').replace(/false/g, 'False').split('\n').join('\n    ')}\n)\nprint(res.json())`
+            : `import os, requests\n\nres = requests.get(\n    '${url}',\n    headers={'Authorization': os.environ['${ENV}']}\n)\nprint(res.json())`,
 
         php: ep.body
-            ? `$ch = curl_init('${url}');\ncurl_setopt_array($ch, [\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_POST => true,\n  CURLOPT_HTTPHEADER => ['Authorization: ${KEY}', 'Content-Type: application/json'],\n  CURLOPT_POSTFIELDS => '${compact}',\n]);\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`
-            : `$ch = curl_init('${url}');\ncurl_setopt_array($ch, [\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_HTTPHEADER => ['Authorization: ${KEY}'],\n]);\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`,
+            ? `$ch = curl_init('${url}');\ncurl_setopt_array($ch, [\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_POST => true,\n  CURLOPT_HTTPHEADER => ['Authorization: ' . getenv('${ENV}'), 'Content-Type: application/json'],\n  CURLOPT_POSTFIELDS => '${compact}',\n]);\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`
+            : `$ch = curl_init('${url}');\ncurl_setopt_array($ch, [\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_HTTPHEADER => ['Authorization: ' . getenv('${ENV}')],\n]);\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`,
     }
 }
 
@@ -502,7 +519,7 @@ export default function DeveloperApiPage() {
                             </CardTitle>
                             <CardDescription className="mt-1">
                                 Base URL: <code className="font-mono text-foreground text-xs">{BASE}/api/v2</code>
-                                &nbsp;— pass your key as <code className="font-mono text-foreground text-xs">Authorization: YOUR_API_KEY</code>
+                                &nbsp;— pass your key as <code className="font-mono text-foreground text-xs">Authorization: &lt;your key&gt;</code>
                             </CardDescription>
                         </div>
 
@@ -523,6 +540,32 @@ export default function DeveloperApiPage() {
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* Placed above the tabs so it is read before any snippet is copied. */}
+                    <div className="mt-3 rounded-xl border border-border/60 bg-secondary/20 p-3 text-xs space-y-2">
+                        <p className="flex items-center gap-1.5 font-semibold">
+                            <ShieldCheck className="w-3.5 h-3.5" /> Keep your key on your server
+                        </p>
+                        <p className="text-muted-foreground">
+                            The key is the whole credential — no password, no second factor — and it
+                            spends your wallet. Anyone holding the string can place orders as you, and a
+                            bill payment cannot be recalled once the provider accepts it.
+                        </p>
+                        <p className="text-muted-foreground">
+                            These endpoints send <code className="font-mono">Access-Control-Allow-Origin: *</code>,
+                            so a call from browser code <em>works</em> — and ships your key to everyone who
+                            opens DevTools. Let your frontend talk to your own server, and keep the key there.
+                        </p>
+                        <p className="text-muted-foreground">
+                            The samples below read it from an environment variable rather than showing a
+                            literal, because a key pasted into a tracked file stays in git history even
+                            after the line is deleted. Put it in a gitignored <code className="font-mono">.env</code>:
+                        </p>
+                        <pre className="font-mono bg-muted/40 rounded-lg p-2.5 overflow-x-auto text-foreground/80">
+{`ARHMS_API_KEY=${STANDARD_KEY_SAMPLE}
+ARHMS_COMMISSION_KEY=${COMMISSION_KEY_SAMPLE}`}
+                        </pre>
                     </div>
 
                     {/* Tabs */}
