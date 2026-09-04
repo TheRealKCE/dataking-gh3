@@ -14,9 +14,11 @@
 -- flow can be pointed at it without a second design.
 
 -- ─── api_keys: two kinds per user ────────────────────────────────────────────
--- Key format keeps the 16-character prefix lookup in lib/api-auth.ts working
--- untouched: 'kf_live_' and 'kf_comm_' are both 8 characters, so prefix =
--- substring(key, 1, 16) is the tag plus 8 hex either way.
+-- Keys are tagged by kind: kf_live_ for data, kf_cs_live_ for commission services.
+-- The tags are different lengths, so api_keys.key_prefix stores the tag plus 8 hex
+-- rather than a fixed 16 characters -- see prefixLengthFor() in lib/api-auth.ts.
+-- Slicing an 11-character tag at 16 would leave 5 random characters, which collides
+-- against api_keys_prefix_unique at a few hundred keys.
 ALTER TABLE public.api_keys
     ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'standard';
 
@@ -34,10 +36,24 @@ ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS webhook_secret TEXT;
 -- replacement goes on means no window where a user could hold two standard keys.
 ALTER TABLE public.api_keys DROP CONSTRAINT IF EXISTS api_keys_user_id_unique;
 
+-- Guarded on the catalog rather than on an exception alone. ADD CONSTRAINT ... UNIQUE
+-- builds a backing INDEX, and a name clash on an index raises duplicate_table (42P07),
+-- not the duplicate_object (42710) a CHECK constraint raises — so the usual
+-- "EXCEPTION WHEN duplicate_object" idiom silently fails to make this idempotent.
+-- Both are caught below in case the index exists without the constraint.
 DO $$ BEGIN
-    ALTER TABLE public.api_keys
-        ADD CONSTRAINT api_keys_user_id_kind_unique UNIQUE (user_id, kind);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'public.api_keys'::regclass
+          AND conname  = 'api_keys_user_id_kind_unique'
+    ) THEN
+        ALTER TABLE public.api_keys
+            ADD CONSTRAINT api_keys_user_id_kind_unique UNIQUE (user_id, kind);
+    END IF;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN duplicate_table  THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_kind ON public.api_keys(kind);
 
