@@ -126,7 +126,7 @@ export interface Database {
                     // 'wallet' for purchases settled from the ARHMS balance with no
                     // gateway involved. Inlined rather than imported so this types file
                     // stays dependency-free.
-                    provider: 'moolre' | 'hubtel' | 'paystack' | 'payswitch' | 'wallet'
+                    provider: 'moolre' | 'hubtel' | 'paystack' | 'paystack_momo' | 'payswitch' | 'wallet'
                     status: 'pending' | 'completed' | 'failed'
                     provider_reference: string | null
                     metadata: Json | null
@@ -141,7 +141,7 @@ export interface Database {
                     fee: number
                     total_amount: number
                     reference: string
-                    provider?: 'moolre' | 'hubtel' | 'paystack' | 'payswitch' | 'wallet'
+                    provider?: 'moolre' | 'hubtel' | 'paystack' | 'paystack_momo' | 'payswitch' | 'wallet'
                     status?: 'pending' | 'completed' | 'failed'
                     provider_reference?: string | null
                     metadata?: Json | null

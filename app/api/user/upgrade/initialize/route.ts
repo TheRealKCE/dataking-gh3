@@ -6,7 +6,7 @@ import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-paymen
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
-import { resolveProvider, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
+import { resolveProviderForScope, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
 
 export async function POST(request: Request) {
     try {
@@ -68,12 +68,23 @@ export async function POST(request: Request) {
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
         // Provider resolution: body takes priority (frontend toggle), fall back to admin setting.
-        // 'moolre' is excluded from the body override to preserve the original behaviour —
-        // it was the fallback arm of the ternary this replaced, never an override.
-        const provider: PaymentProvider =
-            isPaymentProvider(bodyProvider) && bodyProvider !== 'moolre'
-                ? bodyProvider
-                : resolveProvider(settingsMap.active_payment_provider_web)
+        // The admin setting is the only source of truth. The body used to win, which
+        // let a client pick the gateway that collects its own payment — and once a
+        // gateway exists that the UI has not been taught to drive, that is a request
+        // shaped for one rail being charged on another. Logged rather than rejected
+        // so an older client keeps working instead of failing at checkout.
+        if (bodyProvider && isPaymentProvider(bodyProvider)) {
+            const resolved = resolveProviderForScope(settingsMap.active_payment_provider_web, 'web')
+            if (bodyProvider !== resolved) {
+                console.warn(
+                    `[UpgradeInitialize] Ignoring client-supplied provider '${bodyProvider}'; using '${resolved}' from active_payment_provider_web.`
+                )
+            }
+        }
+        const provider: PaymentProvider = resolveProviderForScope(
+            settingsMap.active_payment_provider_web,
+            'web'
+        )
 
         // For Moolre: phone + network are required
         if (!isWalletPayment && provider === 'moolre') {

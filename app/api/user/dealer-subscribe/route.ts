@@ -15,7 +15,7 @@ import {
     PAYSWITCH_CHANNEL_MAP,
 } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
-import { resolveProvider, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
+import { resolveProviderForScope, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
 import { claimHubtelStatusCheck, PAYSWITCH_CLIENT_THROTTLE_KEYS } from '@/lib/hubtel-status-throttle'
 import { processCompletedDealerSubscription } from '@/lib/payments'
 
@@ -59,10 +59,23 @@ export async function POST(request: NextRequest) {
         const settingsMap: Record<string, string> = {}
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
-        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
-        const provider: PaymentProvider = isPaymentProvider(bodyProvider)
-            ? bodyProvider
-            : resolveProvider(settingsMap.active_payment_provider_web)
+        // The admin setting is the only source of truth. The body used to win, which
+        // let a client pick the gateway that collects its own payment — and once a
+        // gateway exists that the UI has not been taught to drive, that is a request
+        // shaped for one rail being charged on another. Logged rather than rejected
+        // so an older client keeps working instead of failing at checkout.
+        if (bodyProvider && isPaymentProvider(bodyProvider)) {
+            const resolved = resolveProviderForScope(settingsMap.active_payment_provider_web, 'web')
+            if (bodyProvider !== resolved) {
+                console.warn(
+                    `[DealerSubscribe] Ignoring client-supplied provider '${bodyProvider}'; using '${resolved}' from active_payment_provider_web.`
+                )
+            }
+        }
+        const provider: PaymentProvider = resolveProviderForScope(
+            settingsMap.active_payment_provider_web,
+            'web'
+        )
 
         const priceKey = planType === 'dealer_3m' ? 'dealer_subscription_price_3m' : 'dealer_subscription_price_6m'
         const subscriptionPrice = parseFloat(settingsMap[priceKey] || '0')
