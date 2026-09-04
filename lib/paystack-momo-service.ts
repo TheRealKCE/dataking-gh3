@@ -1,12 +1,16 @@
 /**
- * Paystack Mobile Money — direct MoMo collection for the USSD channel.
+ * Paystack Mobile Money — the Charge API client for direct MoMo collection.
  *
- * This is NOT the Paystack integration the rest of the app uses. Everywhere else
- * Paystack means `transaction/initialize` + a hosted checkout page the browser is
- * redirected to (see lib/payment-provider.ts, where isMomoPromptProvider() returns
- * false for exactly that reason). A USSD caller has no browser to redirect, so this
- * module drives the Charge API instead: we debit the handset directly and the
- * customer approves on their phone.
+ * The `paystack` provider means `transaction/initialize` plus a hosted checkout page
+ * the browser is redirected to. `paystack_momo` means this: we debit the handset
+ * directly and the customer approves on their phone, with no page to redirect to.
+ * That distinction is what lib/payment-provider.ts encodes — see
+ * HOSTED_REDIRECT_PROVIDERS, which lists only the former.
+ *
+ * This module is the thin HTTP layer and nothing else. The orchestration around a
+ * charge — prompt limits, audit logging, pending markers, response shaping — lives
+ * in lib/paystack-momo-checkout.ts, which is Node-only. Two modules, because of the
+ * constraint below.
  *
  * Uses:
  *   PAYSTACK_SECRET_KEY — the same secret key the hosted-checkout flow already uses
@@ -14,6 +18,8 @@
  * EDGE-SAFE ON PURPOSE. app/api/hubtel/interact/route.ts runs on the edge runtime,
  * so nothing here may import undici — that means no `getDispatcher()` and no
  * `Agent`, unlike lib/payswitch-payment-service.ts and lib/hubtel-payment-service.ts.
+ * It also rules out Redis and the hubtel-* helpers, which is precisely why the
+ * orchestration layer is a separate file: pulling any of it in here takes USSD down.
  * Paystack does not whitelist by IP, so the static proxy would buy nothing and would
  * spend metered Fixie quota that Hubtel's collections depend on.
  *
@@ -24,28 +30,78 @@
 const PAYSTACK_BASE_URL = 'https://api.paystack.co'
 
 /**
- * Hard ceiling on every Paystack call.
+ * Default ceiling on a charge or OTP call.
  *
  * The USSD confirm screen has to answer Hubtel inside ~10s or the session is torn
  * down, and the rest of that budget is already spoken for. Six seconds is the most
- * this call can have while leaving room to build a response.
+ * this call can have while leaving room to build a response. USSD callers pass no
+ * override and so keep exactly this budget.
  */
 const CHARGE_TIMEOUT_MS = 6_000
+
+/**
+ * What a browser-facing route should pass as `timeoutMs`.
+ *
+ * A web checkout has no USSD session to answer, so it would rather wait than
+ * resolve as 'pending' something it could have resolved as 'otp' — a premature
+ * 'pending' costs the customer a poll cycle and hides the OTP prompt they are
+ * waiting for.
+ */
+export const WEB_CHARGE_TIMEOUT_MS = 20_000
 
 /** The reconciliation cron has no USSD session waiting on it, so it can afford more. */
 const VERIFY_TIMEOUT_MS = 15_000
 
 /**
- * Our network names -> Paystack's `mobile_money.provider` codes.
+ * Every spelling of a Ghanaian network any ARHMS surface emits -> Paystack's
+ * `mobile_money.provider` code. The single source of truth for that mapping.
  *
- * Keyed identically to HUBTEL_CHANNEL_MAP / MOOLRE_PAYMENT_CHANNEL_MAP /
- * PAYSWITCH_CHANNEL_MAP so the four gateways stay comparable. 'vod' is Paystack's
- * code for what Ghana now calls Telecel — they never renamed it.
+ * Two vocabularies have to meet here. The checkout forms post 'AT' for AirtelTigo,
+ * because their options were written against HUBTEL_CHANNEL_MAP /
+ * MOOLRE_PAYMENT_CHANNEL_MAP / PAYSWITCH_CHANNEL_MAP, which all key it that way.
+ * detectNetwork() spells the same network 'AirtelTigo'. Before this table the two
+ * were reconciled by a copy of the bridge pasted into each caller, and any caller
+ * that forgot got `undefined` for AirtelTigo — a network that silently stops
+ * working is worse than one that visibly fails, so there is now one table and one
+ * resolver.
+ *
+ * 'vod' is Paystack's code for what Ghana now calls Telecel — they never renamed it.
+ */
+const NETWORK_ALIASES: Record<string, string> = {
+    mtn: 'mtn',
+    telecel: 'vod',
+    vodafone: 'vod',
+    vod: 'vod',
+    airteltigo: 'atl',
+    'airtel-tigo': 'atl',
+    at: 'atl',
+    atl: 'atl',
+    airtel: 'atl',
+    tigo: 'atl',
+    'at-ishare': 'atl',
+    'at-bigtime': 'atl',
+}
+
+/**
+ * Resolves any network spelling to a Paystack provider code, or null.
+ *
+ * Null means "we do not know which wallet to debit" and must surface as a 400.
+ * Guessing is not an option: charging the wrong provider fails at best and debits
+ * an unexpected wallet at worst.
+ */
+export function paystackMomoProviderFor(network: string | null | undefined): string | null {
+    const key = String(network ?? '').trim().toLowerCase().replace(/\s+/g, '')
+    return NETWORK_ALIASES[key] ?? null
+}
+
+/**
+ * The canonical detectNetwork() spellings, kept as a map for resolvePayerProvider().
+ * Derived from NETWORK_ALIASES so the two can never disagree.
  */
 export const PAYSTACK_MOMO_PROVIDER_MAP: Record<string, string> = {
-    MTN: 'mtn',
-    Telecel: 'vod',
-    AirtelTigo: 'atl',
+    MTN: NETWORK_ALIASES.mtn,
+    Telecel: NETWORK_ALIASES.telecel,
+    AirtelTigo: NETWORK_ALIASES.airteltigo,
 }
 
 export type PaystackChargeOutcome = 'paid' | 'pending' | 'otp' | 'failed'
@@ -97,6 +153,34 @@ export function toAsciiSafe(value: string | null | undefined, fallback: string):
         .replace(/[^\x20-\x7E]/g, '')
         .trim()
     return cleaned || fallback
+}
+
+/**
+ * Folds every string leaf of an outbound payload through toAsciiSafe().
+ *
+ * Applied inside chargeMobileMoney() rather than left to callers on purpose. The
+ * failure it prevents is the worst shape a payment bug takes — a multi-byte
+ * character (a storefront shop name joined with an em dash, say) makes the request
+ * throw `TypeError: terminated` AFTER the charge has landed, so the money moves and
+ * nothing is delivered. Opt-in protection means every one of the callers has to
+ * remember; folding here means none of them can forget.
+ *
+ * Depth-capped because metadata is caller-supplied and a cycle would hang the
+ * request. Three levels is past anything the checkout routes send.
+ */
+function sanitizeMetadata(value: unknown, depth = 0): unknown {
+    if (typeof value === 'string') return toAsciiSafe(value, '')
+    if (value === null || typeof value === 'number' || typeof value === 'boolean') return value
+    if (depth >= 3) return null
+    if (Array.isArray(value)) return value.map((item) => sanitizeMetadata(item, depth + 1))
+    if (typeof value === 'object') {
+        const out: Record<string, unknown> = {}
+        for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+            out[toAsciiSafe(key, '_')] = sanitizeMetadata(item, depth + 1)
+        }
+        return out
+    }
+    return null
 }
 
 /**
@@ -207,6 +291,8 @@ export async function chargeMobileMoney(params: {
     provider: string
     email?: string
     metadata?: Record<string, unknown>
+    /** Defaults to the USSD session budget. Web routes pass WEB_CHARGE_TIMEOUT_MS. */
+    timeoutMs?: number
 }): Promise<PaystackChargeResult> {
     const configError = getPaystackConfigError()
     if (configError) {
@@ -219,7 +305,7 @@ export async function chargeMobileMoney(params: {
     }
 
     const body = {
-        email: params.email || ussdCustomerEmail(params.payerMsisdn),
+        email: toAsciiSafe(params.email, '') || ussdCustomerEmail(params.payerMsisdn),
         // Paystack takes the minor unit. GHS 2.00 is 200 — sending 2 would charge
         // two pesewas and still report itself as a successful charge.
         amount: amountPesewas,
@@ -229,7 +315,7 @@ export async function chargeMobileMoney(params: {
             phone: params.payerMsisdn,
             provider: params.provider,
         },
-        metadata: params.metadata ?? {},
+        metadata: sanitizeMetadata(params.metadata ?? {}),
     }
 
     try {
@@ -237,7 +323,7 @@ export async function chargeMobileMoney(params: {
             method: 'POST',
             headers: authHeaders(),
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(CHARGE_TIMEOUT_MS),
+            signal: AbortSignal.timeout(params.timeoutMs ?? CHARGE_TIMEOUT_MS),
         })
 
         const json: any = await res.json().catch(() => null)
@@ -247,14 +333,36 @@ export async function chargeMobileMoney(params: {
         }
 
         // `status: false` is Paystack refusing the request outright (bad key,
-        // duplicate reference, unsupported provider). No charge exists.
+        // unsupported provider, duplicate reference).
         if (json.status === false) {
+            const refusal = String(json.message || `Paystack refused the charge (HTTP ${res.status}).`)
+
+            // A duplicate reference is the one refusal that does NOT mean "no
+            // charge". It means a charge for this reference already exists — which
+            // is exactly what the catch below leaves behind when a first attempt
+            // times out and is reported as 'pending'. The customer retries, we send
+            // the same reference, Paystack refuses it, and if we called that
+            // 'failed' the route would stamp the row failed. The webhook's
+            // pending-only guard (lib/payments.ts) can then never settle it, so
+            // money that did move is delivered against nothing, and no sweep
+            // recovers it. Report it as pending and let verify decide.
+            if (/duplicate|already (exists|been)/i.test(refusal)) {
+                return {
+                    outcome: 'pending',
+                    displayText: null,
+                    reference: params.reference,
+                    rawStatus: 'duplicate',
+                    message: refusal,
+                    raw: json,
+                }
+            }
+
             return {
                 outcome: 'failed',
                 displayText: null,
                 reference: params.reference,
                 rawStatus: null,
-                message: String(json.message || `Paystack refused the charge (HTTP ${res.status}).`),
+                message: refusal,
                 raw: json,
             }
         }
@@ -290,6 +398,8 @@ export async function chargeMobileMoney(params: {
 export async function submitOtp(params: {
     reference: string
     otp: string
+    /** Defaults to the USSD session budget. Web routes pass WEB_CHARGE_TIMEOUT_MS. */
+    timeoutMs?: number
 }): Promise<PaystackChargeResult> {
     const configError = getPaystackConfigError()
     if (configError) {
@@ -301,7 +411,7 @@ export async function submitOtp(params: {
             method: 'POST',
             headers: authHeaders(),
             body: JSON.stringify({ otp: params.otp, reference: params.reference }),
-            signal: AbortSignal.timeout(CHARGE_TIMEOUT_MS),
+            signal: AbortSignal.timeout(params.timeoutMs ?? CHARGE_TIMEOUT_MS),
         })
 
         const json: any = await res.json().catch(() => null)

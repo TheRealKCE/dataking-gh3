@@ -40,8 +40,20 @@ const sep = '─'.repeat(64)
 const BASE = 'https://api.paystack.co'
 const KEY = process.env.PAYSTACK_SECRET_KEY
 
-/** Same map as PAYSTACK_MOMO_PROVIDER_MAP — kept literal so the script has no imports. */
-const PROVIDER_MAP = { MTN: 'mtn', Telecel: 'vod', AirtelTigo: 'atl', AT: 'atl' }
+/**
+ * The same spellings NETWORK_ALIASES accepts in lib/paystack-momo-service.ts, kept
+ * literal so the script has no imports. If you add an alias there, add it here —
+ * `--charge <msisdn> AT` is the regression test that the two agree, and the app
+ * silently stops charging AirtelTigo when they do not.
+ */
+const PROVIDER_MAP = {
+    MTN: 'mtn',
+    Telecel: 'vod',
+    Vodafone: 'vod',
+    AirtelTigo: 'atl',
+    AT: 'atl',
+    ATL: 'atl',
+}
 
 function headers() {
     return {
