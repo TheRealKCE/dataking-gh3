@@ -51,6 +51,11 @@ function WalletContent() {
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
+    // The gateway's own words for the customer. Paystack varies the instruction per
+    // charge — a one-time password on some numbers, a PIN prompt on others — so
+    // asserting one of them in fixed copy tells roughly a third of customers to do
+    // the wrong thing.
+    const [otpMessage, setOtpMessage] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const searchParams = useSearchParams()
@@ -267,6 +272,7 @@ function WalletContent() {
             // code that is never sent while the prompt goes unanswered on the handset.
             setPaymentReference(data.reference)
             if (data.otpRequired) {
+                setOtpMessage(data.message || '')
                 setOtpRequired(true)
             } else {
                 toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
@@ -685,7 +691,8 @@ function WalletContent() {
                     <DialogHeader>
                         <DialogTitle>Enter OTP</DialogTitle>
                         <DialogDescription>
-                            Your network sent a one-time code to {paymentPhone || 'your phone'}. Enter it to authorise this top-up.
+                            {otpMessage || `Your network sent a one-time code to ${paymentPhone || 'your phone'}.`}
+                            {' '}Enter it below to authorise this top-up. If nothing arrives within a minute, close this and try again.
                         </DialogDescription>
                     </DialogHeader>
                     <Input

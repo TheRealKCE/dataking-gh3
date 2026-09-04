@@ -161,6 +161,10 @@ export default function DataPackagesPage() {
     const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [pollingKind, setPollingKind] = useState<'single' | 'bulk'>('single')
     const [otpRequired, setOtpRequired] = useState(false)
+    // Paystack's own instruction for this charge. It differs per number — a one-time
+    // password on some, a PIN prompt on others — so fixed copy misinforms whichever
+    // group it does not describe.
+    const [otpMessage, setOtpMessage] = useState('')
     const [otpCode, setOtpCode] = useState('')
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
     // Gateway reference kept separate from currentReferenceCode, which is the
@@ -602,6 +606,7 @@ export default function DataPackagesPage() {
             }
 
             if (data.otpRequired) {
+                setOtpMessage(data.message || '')
                 setDirectPaymentRef(data.reference)
                 setOtpRequired(true)
                 setIsPurchasing(false)
@@ -935,6 +940,8 @@ export default function DataPackagesPage() {
             }
 
             if (data.otpRequired) {
+                // No dialog on this path — bulk deliberately refuses the OTP round
+                // trip, so there is no instruction to display.
                 toast.error('This basket needs OTP approval. Please pay from your wallet or try a single purchase.')
                 setIsSubmittingBulk(false)
                 return
@@ -1978,7 +1985,8 @@ export default function DataPackagesPage() {
                     <DialogHeader>
                         <DialogTitle>Enter OTP</DialogTitle>
                         <DialogDescription>
-                            Your network sent a one-time code to {effectiveMomoPhone || 'your phone'}. Enter it to authorise this payment.
+                            {otpMessage || `Your network sent a one-time code to ${effectiveMomoPhone || 'your phone'}.`}
+                            {' '}Enter it below to authorise this payment. If nothing arrives within a minute, close this and try again.
                         </DialogDescription>
                     </DialogHeader>
                     <Input

@@ -31,7 +31,7 @@ import {
     checkPaystackMomoPromptLimit,
     recordPaystackMomoPrompt,
 } from '@/lib/hubtel-prompt-limit'
-import { logInitiate } from '@/lib/hubtel-payment-log'
+import { logInitiate, logStatusCheck } from '@/lib/hubtel-payment-log'
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
@@ -183,7 +183,12 @@ export async function startPaystackMomoCharge(
         amount: input.amountGhs,
         channel: provider,
         payerMsisdn: input.payerPhone,
-        message: charge.message,
+        // displayText first: it is Paystack's instruction to the customer ("enter the
+        // one-time password", "input your PIN on your mobile device") and is the only
+        // field that says which authorisation path this charge took. data.message is
+        // almost always null on a MoMo charge, so logging it alone left the log row
+        // blank and the raw JSON the only place to find out what happened.
+        message: charge.displayText ?? charge.message,
         responseCode: charge.rawStatus,
         userId: input.userId ?? null,
         raw: charge.raw,
@@ -204,6 +209,17 @@ export async function submitPaystackMomoOtp(params: {
         reference: params.reference,
         otp: params.otp,
         timeoutMs: WEB_CHARGE_TIMEOUT_MS,
+    })
+
+    // Recorded because otherwise nothing anywhere shows that a code was ever tried.
+    // A charge that answered send_otp and then went quiet is indistinguishable, in
+    // the logs, from one where the customer never received the SMS at all — and
+    // those two need completely different responses from us.
+    await logStatusCheck({
+        clientReference: params.reference,
+        status: result.outcome === 'paid' ? 'success' : result.outcome === 'failed' ? 'failed' : 'pending',
+        message: result.displayText ?? result.message ?? `OTP submitted, Paystack said ${result.rawStatus ?? 'nothing'}`,
+        raw: result.raw,
     })
 
     if (result.outcome === 'failed') {
