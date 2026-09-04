@@ -86,7 +86,13 @@ const LANGS: { id: Lang; label: string }[] = [
     { id: 'php',        label: 'PHP'        },
 ]
 
-const BASE = 'https://www.arhmsgh.com'
+// Apex, NOT www. www.arhmsgh.com answers every /api request with a 307 to the apex,
+// and a cross-host redirect makes clients drop the Authorization header -- curl and
+// axios both do, by design. A partner copying a www sample gets 401 no matter how
+// valid their key is, with nothing in the response to explain why. Verified:
+//   > Host: www.arhmsgh.com   Authorization: <key>   -> 307
+//   > Host: arhmsgh.com       (no Authorization)     -> 401
+const BASE = 'https://arhmsgh.com'
 const STANDARD_KEY_SAMPLE   = 'kf_live_your_api_key_here'
 const COMMISSION_KEY_SAMPLE = 'kf_cs_live_your_commission_key_here'
 
