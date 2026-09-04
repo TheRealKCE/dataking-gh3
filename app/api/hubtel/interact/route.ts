@@ -15,6 +15,7 @@ import {
     submitOtp,
     toAsciiSafe,
 } from '@/lib/paystack-momo-service';
+import { resolveProviderForScope, SCOPE_SETTING_KEY, type PaymentProvider } from '@/lib/payment-provider';
 import { buildUssdReference } from '@/lib/ussd-reference';
 import { logInitiate } from '@/lib/hubtel-payment-log';
 
@@ -38,8 +39,8 @@ import { logInitiate } from '@/lib/hubtel-payment-log';
  *
  * This used to be Hubtel's job — confirm returned `Type: "AddToCart"` and Hubtel
  * charged the customer inside the session, reporting to /api/hubtel/fulfill. That
- * path is still wired and one admin setting away (`ussd_payment_provider = hubtel`)
- * so a bad day does not need a deploy to undo.
+ * path is still wired and one click away (Admin -> Settings -> USSD Payments ->
+ * Hubtel) so a bad day does not need a deploy to undo.
  *
  * EDGE RUNTIME. Nothing imported here may pull in undici — that rules out
  * lib/hubtel-payment-service.ts and everything re-exported from it. Paystack is
@@ -95,15 +96,15 @@ const WELCOME_MESSAGE = 'Enter short code to continue:';
 const USSD_FLAG_TTL_MS = 60_000;
 
 /** admin_settings key naming which gateway collects for a USSD sale. */
-const USSD_PAYMENT_PROVIDER_KEY = 'ussd_payment_provider';
+const USSD_PROVIDER_KEY = SCOPE_SETTING_KEY.ussd;
 
 /** Shared with every other surface — the same switch the admin fulfillment page writes. */
 const MTN_GATE_KEY = 'mtn_registration_gate_enabled';
 
 interface UssdFlags {
     enabled: boolean;
-    /** 'paystack' (we collect) | 'hubtel' (AddToCart, the pre-Paystack path). */
-    paymentProvider: 'paystack' | 'hubtel';
+    /** 'paystack_momo' (we collect) | 'hubtel' (AddToCart, the pre-Paystack path). */
+    paymentProvider: PaymentProvider;
     /** Refuse MTN data orders to numbers that are not registered yet. */
     mtnGateEnabled: boolean;
 }
@@ -128,7 +129,7 @@ async function getUssdFlags(): Promise<UssdFlags> {
             getSupabaseAdmin()
                 .from('admin_settings')
                 .select('key, value')
-                .in('key', [USSD_ENABLED_KEY, USSD_PAYMENT_PROVIDER_KEY, MTN_GATE_KEY]),
+                .in('key', [USSD_ENABLED_KEY, USSD_PROVIDER_KEY, MTN_GATE_KEY]),
             3000,
             'ussd flags fetch timeout'
         );
@@ -138,14 +139,6 @@ async function getUssdFlags(): Promise<UssdFlags> {
             raw[row.key] = row.value;
         }
 
-        // admin_settings.value has been written both JSON-quoted and bare over the
-        // years; strip the quotes the same way resolveProvider() does.
-        const providerRaw = String(raw[USSD_PAYMENT_PROVIDER_KEY] ?? '')
-            .trim()
-            .replace(/^"+|"+$/g, '')
-            .trim()
-            .toLowerCase();
-
         const flags: UssdFlags = {
             // The RAW value goes to isUssdEnabled, deliberately. It answers true only
             // for the exact string 'true', and normalising first would widen that: a
@@ -154,8 +147,13 @@ async function getUssdFlags(): Promise<UssdFlags> {
             // one switch in the codebase whose whole job is failing closed, and it is
             // now the only gate in front of live money.
             enabled: isUssdEnabled({ [USSD_ENABLED_KEY]: raw[USSD_ENABLED_KEY] as any }),
-            // Paystack unless someone has deliberately named hubtel.
-            paymentProvider: providerRaw === 'hubtel' ? 'hubtel' : 'paystack',
+            // Resolved through the shared registry rather than parsed here, so this
+            // route and /api/shop/ussd/activate can never disagree about which
+            // gateway is collecting. lib/payment-provider.ts is pure — no server
+            // imports, no env reads — so it is safe on the edge runtime this route
+            // runs on. The 'ussd' scope's fallback is paystack_momo, not the global
+            // Moolre default, which has no USSD branch at all.
+            paymentProvider: resolveProviderForScope(raw[USSD_PROVIDER_KEY], 'ussd'),
             // Read exactly as loadGateSettings() reads it, so this route and the web
             // routes can never disagree about whether the gate is on. Deliberately NOT
             // isUssdEnabled(): that helper's extra strictness belongs to the switch that
@@ -176,7 +174,7 @@ async function getUssdFlags(): Promise<UssdFlags> {
         // runs when we could not read the setting at all — the same reasoning as
         // loadGateSettings(), which also treats an unreadable setting as off.
         return ussdFlagCache?.flags
-            ?? { enabled: false, paymentProvider: 'paystack', mtnGateEnabled: false };
+            ?? { enabled: false, paymentProvider: 'paystack_momo', mtnGateEnabled: false };
     }
 }
 

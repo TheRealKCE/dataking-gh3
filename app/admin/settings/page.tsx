@@ -50,6 +50,9 @@ export default function AdminSettingsPage() {
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>('moolre')
     const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<PaymentProvider>('moolre')
+    // Seeded with the USSD scope's own fallback, not Moolre — Moolre has no USSD
+    // branch, so showing it here would offer a gateway that cannot take the money.
+    const [ussdPaymentProvider, setUssdPaymentProvider] = useState<PaymentProvider>('paystack_momo')
     const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
     // Referral programme
     const [referralEnabled, setReferralEnabled] = useState(false)
@@ -141,6 +144,7 @@ export default function AdminSettingsPage() {
             setSmsProvider(settingsMap.active_sms_provider === 'hubtel' ? 'hubtel' : 'moolre')
             setWebPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_web, 'web'))
             setShopPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_shop, 'shop'))
+            setUssdPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_ussd, 'ussd'))
             setClassifiedsPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_classifieds, 'classifieds'))
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
             setRcWalletPaymentEnabled(settingsMap.rc_wallet_payment_enabled !== 'false')
@@ -214,6 +218,7 @@ export default function AdminSettingsPage() {
                 { key: 'active_sms_provider', value: smsProvider },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+                { key: 'active_payment_provider_ussd', value: ussdPaymentProvider },
                 { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
                 { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
@@ -620,6 +625,37 @@ export default function AdminSettingsPage() {
                                                 'px-4 py-2 text-sm font-medium transition-colors',
                                                 index > 0 && 'border-l',
                                                 shopPaymentProvider === id
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-background hover:bg-muted text-foreground'
+                                            )}
+                                        >
+                                            {PROVIDER_LABEL[id]}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* USSD offers only the two gateways that can complete a
+                                dial-in sale. A hosted redirect cannot: there is no
+                                browser on a USSD session. SCOPE_PROVIDERS.ussd is what
+                                keeps that honest, and this control renders from it.
+                                Selecting Hubtel here is the rollback to the AddToCart
+                                path — it used to require editing the database by hand. */}
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">USSD Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Short-code dial-in sales and short-code activations</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    {SCOPE_PROVIDERS.ussd.map((id, index) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setUssdPaymentProvider(id)}
+                                            className={cn(
+                                                'px-4 py-2 text-sm font-medium transition-colors',
+                                                index > 0 && 'border-l',
+                                                ussdPaymentProvider === id
                                                     ? 'bg-primary text-primary-foreground'
                                                     : 'bg-background hover:bg-muted text-foreground'
                                             )}
