@@ -1,4 +1,20 @@
 /**
+ * SUPERSEDED by /api/cron/verify-paystack-momo-payments, which absorbed both of the
+ * sweeps below (Parts C1 and C2 there) so that one cron owns every call to
+ * verifyTransaction rather than two that can drift apart.
+ *
+ * Unscheduled, not deleted: it is kept for one release as a rollback target. Do not
+ * re-add it to vercel.json or to cron-job.org while the merged sweep is scheduled —
+ * running both is harmless (every settle path is idempotent) but doubles the
+ * Paystack verify calls and makes the two run logs impossible to read against each
+ * other. Delete this file once the merged sweep has run clean.
+ *
+ * NOTE its activation query below filters provider='paystack'. The merged sweep
+ * matches both 'paystack' and 'paystack_momo', which is the correct behaviour now
+ * that /api/shop/ussd/activate stamps the new label.
+ *
+ * ---
+ *
  * USSD (Paystack Mobile Money) reconciliation sweep.
  *
  * The safety net for a charge whose webhook never arrived. USSD needs this more

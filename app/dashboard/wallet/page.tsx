@@ -267,9 +267,18 @@ function WalletContent() {
                 return
             }
 
-            // Moolre: show OTP modal
+            // Moolre and Paystack MoMo: an OTP step only when the gateway asked for
+            // one. This used to open the modal unconditionally, which was harmless
+            // while Moolre always wanted a code — Paystack asks only on Telecel and
+            // AirtelTigo, so an unguarded modal would sit there on MTN waiting for a
+            // code that is never sent while the prompt goes unanswered on the handset.
             setPaymentReference(data.reference)
-            setOtpRequired(true)
+            if (data.otpRequired) {
+                setOtpRequired(true)
+            } else {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+            }
             setIsProcessing(false)
         } catch (error: any) {
             toast.error(error.message || 'Failed to process payment')

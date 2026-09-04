@@ -29,6 +29,13 @@ export function flowFromReference(reference: string): string {
     // (startsWith is anchored, so these could not actually collide — the ordering is
     // for the reader, and for whoever loosens one of these tests later.)
     if (ref.startsWith('USSD-')) return 'ussd'
+    // A dashboard purchase of a USSD short code. Filed under 'ussd' because that is
+    // the sweep that settles it, and an operator looking for a USSD payment problem
+    // looks in one place.
+    if (ref.startsWith('ussd_activation_')) return 'ussd'
+    // Must be tested before SHOP-: 'AFA-SHOP-…' does not start with 'SHOP-', so it
+    // fell through to 'unknown' and dropped out of the admin filter entirely.
+    if (ref.startsWith('AFA-SHOP-')) return 'afa'
     if (ref.startsWith('SHOP-')) return 'shop'
     if (ref.startsWith('RC-')) return 'results_checker'
     if (ref.startsWith('DATA-')) return 'data'
@@ -52,6 +59,7 @@ export function flowFromReference(reference: string): string {
 export const HUBTEL_LOG_FLOWS = [
     'wallet',
     'shop',
+    'afa',
     'data',
     'results_checker',
     'boost',

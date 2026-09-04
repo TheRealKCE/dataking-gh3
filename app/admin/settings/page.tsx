@@ -27,6 +27,8 @@ export default function AdminSettingsPage() {
     // Form states
     const [paystackFee, setPaystackFee] = useState('1.95')
     const [agentPaystackFee, setAgentPaystackFee] = useState('1.95')
+    const [paystackMomoFee, setPaystackMomoFee] = useState('1.95')
+    const [agentPaystackMomoFee, setAgentPaystackMomoFee] = useState('1.95')
     const [mtnAdjustment, setMtnAdjustment] = useState('0')
     const [agentUpgradePrice, setAgentUpgradePrice] = useState('100')
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
@@ -48,6 +50,9 @@ export default function AdminSettingsPage() {
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>('moolre')
     const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<PaymentProvider>('moolre')
+    // Seeded with the USSD scope's own fallback, not Moolre — Moolre has no USSD
+    // branch, so showing it here would offer a gateway that cannot take the money.
+    const [ussdPaymentProvider, setUssdPaymentProvider] = useState<PaymentProvider>('paystack_momo')
     const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
     // Referral programme
     const [referralEnabled, setReferralEnabled] = useState(false)
@@ -107,6 +112,11 @@ export default function AdminSettingsPage() {
             // Initialize form values
             setPaystackFee(settingsMap.paystack_fee_percent || '1.95')
             setAgentPaystackFee(settingsMap.agent_paystack_fee_percent || '1.95')
+            // Fall back to the hosted-checkout figure rather than to 1.95, so the box
+            // shows what the MoMo rail would actually charge today — lib/gateway-fees
+            // resolves it the same way when the momo key is unset.
+            setPaystackMomoFee(settingsMap.paystack_momo_fee_percent || settingsMap.paystack_fee_percent || '1.95')
+            setAgentPaystackMomoFee(settingsMap.agent_paystack_momo_fee_percent || settingsMap.agent_paystack_fee_percent || '1.95')
             setMtnAdjustment(settingsMap.mtn_price_adjustment || '0')
             setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
@@ -134,6 +144,7 @@ export default function AdminSettingsPage() {
             setSmsProvider(settingsMap.active_sms_provider === 'hubtel' ? 'hubtel' : 'moolre')
             setWebPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_web, 'web'))
             setShopPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_shop, 'shop'))
+            setUssdPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_ussd, 'ussd'))
             setClassifiedsPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_classifieds, 'classifieds'))
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
             setRcWalletPaymentEnabled(settingsMap.rc_wallet_payment_enabled !== 'false')
@@ -185,6 +196,8 @@ export default function AdminSettingsPage() {
                 { key: 'referral_clawback_on_refund', value: String(referralClawbackOnRefund) },
                 { key: 'paystack_fee_percent', value: paystackFee },
                 { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
+                { key: 'paystack_momo_fee_percent', value: paystackMomoFee },
+                { key: 'agent_paystack_momo_fee_percent', value: agentPaystackMomoFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
                 { key: 'agent_upgrade_price', value: agentUpgradePrice },
                 { key: 'afa_price_customer', value: afaPriceCustomer },
@@ -205,6 +218,7 @@ export default function AdminSettingsPage() {
                 { key: 'active_sms_provider', value: smsProvider },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+                { key: 'active_payment_provider_ussd', value: ussdPaymentProvider },
                 { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
                 { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
@@ -442,6 +456,26 @@ export default function AdminSettingsPage() {
                                 <p className="text-xs text-muted-foreground">Fee passed on to AGENTS during wallet top-up</p>
                             </div>
                             <div className="space-y-2">
+                                <Label>Paystack MoMo Fee Percentage (%)</Label>
+                                <Input
+                                    type="number"
+                                    value={paystackMomoFee}
+                                    onChange={(e) => setPaystackMomoFee(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">Used when a scope is set to Paystack MoMo (the direct prompt). Leave blank to reuse the Paystack fee above.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Agent Paystack MoMo Fee Percentage (%)</Label>
+                                <Input
+                                    type="number"
+                                    value={agentPaystackMomoFee}
+                                    onChange={(e) => setAgentPaystackMomoFee(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">The same, for AGENTS. Leave blank to reuse the Agent Paystack fee above.</p>
+                            </div>
+                            <div className="space-y-2">
                                 <Label>MTN Price Adjustment (GHS)</Label>
                                 <Input
                                     type="number"
@@ -591,6 +625,37 @@ export default function AdminSettingsPage() {
                                                 'px-4 py-2 text-sm font-medium transition-colors',
                                                 index > 0 && 'border-l',
                                                 shopPaymentProvider === id
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-background hover:bg-muted text-foreground'
+                                            )}
+                                        >
+                                            {PROVIDER_LABEL[id]}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* USSD offers only the two gateways that can complete a
+                                dial-in sale. A hosted redirect cannot: there is no
+                                browser on a USSD session. SCOPE_PROVIDERS.ussd is what
+                                keeps that honest, and this control renders from it.
+                                Selecting Hubtel here is the rollback to the AddToCart
+                                path — it used to require editing the database by hand. */}
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">USSD Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Short-code dial-in sales and short-code activations</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    {SCOPE_PROVIDERS.ussd.map((id, index) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setUssdPaymentProvider(id)}
+                                            className={cn(
+                                                'px-4 py-2 text-sm font-medium transition-colors',
+                                                index > 0 && 'border-l',
+                                                ussdPaymentProvider === id
                                                     ? 'bg-primary text-primary-foreground'
                                                     : 'bg-background hover:bg-muted text-foreground'
                                             )}

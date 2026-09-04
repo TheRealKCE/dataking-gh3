@@ -3,6 +3,8 @@ import { updateOrderWithColumnFallback } from './order-update-fallback'
 import { creditShopProfit } from './shop-service'
 import { resolveSubAgentContext } from './sub-agents'
 import { resolveChainCosts, splitChainProfit } from './pricing/chain-cost'
+import { shopFeeSettingKeys, resolveShopFeePercent } from './gateway-fees'
+import type { PaymentProvider } from './payment-provider'
 
 // In-memory lock to prevent race conditions between frontend verification and Paystack webhooks
 const processingLocks = new Set<string>();
@@ -39,6 +41,14 @@ export async function processShopOrder(
          * their existing behaviour.
          */
         awaiting_registration?: boolean;
+        /**
+         * Which rail collected this order, set by /api/shop/initialize. Read only to
+         * pick the fee keys, since 'paystack' and 'paystack_momo' can be priced
+         * differently. Absent on every reference initialized before paystack_momo
+         * existed, which is why the resolution below treats absent as 'paystack'
+         * rather than requiring it.
+         */
+        provider?: string;
     },
     paidAmountPesewas: number,
     slug?: string
@@ -150,35 +160,33 @@ export async function processShopOrder(
             adminCostAtTime = actualAirtimeAmount
         } else {
             // --- Role-Aware Paystack Fee Resolution ---
-            // Priority: per-shop override → role-specific global → legacy global → hardcoded default
-            // A per-shop override of exactly 0 means "deliberately free for this shop".
-            // Only null means "inherit from global".
-            let paystackFeePercent = 1.95 // hardcoded last-resort default
+            // Resolved through lib/gateway-fees.ts, which the checkout routes also
+            // use. The amount check below rejects anything more than five pesewas off
+            // the figure derived here, so if the two sides resolve differently the
+            // order fails AFTER the customer has paid. One ladder, both ends.
+            //
+            // The rail is read off the metadata rather than the settings, because the
+            // admin setting may have been switched between this order being charged
+            // and it being settled. The row has to be priced by whatever collected it.
+            // Absent on every reference initialized before paystack_momo existed, so
+            // it defaults to the hosted-checkout keys those orders were priced with.
+            const settledProvider: PaymentProvider =
+                metadata.provider === 'paystack_momo' ? 'paystack_momo' : 'paystack'
 
-            // Fetch all relevant fee keys in one query for efficiency
             const { data: paystackSettingsRows } = await db
                 .from('shop_global_settings')
                 .select('key, value')
-                .in('key', [
-                    `shop_paystack_fee_percent_${ownerRole}`,
-                    'shop_paystack_fee_percent',
-                ])
+                .in('key', shopFeeSettingKeys(ownerRole, settledProvider))
             const paystackSettingsMap: Record<string, string> = {}
             for (const row of (paystackSettingsRows || [])) {
                 paystackSettingsMap[row.key] = row.value
             }
 
-            if (shopProfile?.paystack_fee_percent !== null && shopProfile?.paystack_fee_percent !== undefined) {
-                // Explicit per-shop override set by admin (0 = deliberately free)
-                paystackFeePercent = parseFloat(shopProfile.paystack_fee_percent)
-            } else if (paystackSettingsMap[`shop_paystack_fee_percent_${ownerRole}`] != null) {
-                // Role-specific global setting (customer or agent)
-                paystackFeePercent = parseFloat(paystackSettingsMap[`shop_paystack_fee_percent_${ownerRole}`])
-            } else if (paystackSettingsMap['shop_paystack_fee_percent'] != null) {
-                // Legacy fallback global key (backward compatibility)
-                paystackFeePercent = parseFloat(paystackSettingsMap['shop_paystack_fee_percent'])
-            }
-            // else: keep hardcoded default 1.95
+            const paystackFeePercent = resolveShopFeePercent(paystackSettingsMap, {
+                shopOverride: shopProfile?.paystack_fee_percent,
+                ownerRole,
+                provider: settledProvider,
+            })
 
             const { data: pkg } = await db.from('data_packages').select('price, agent_price, dealer_price, cost_price').eq('id', metadata.package_id).single()
             const { data: shopPrice } = await db.from('shop_pricing').select('selling_price').eq('shop_id', metadata.shop_id).eq('package_id', metadata.package_id).single()

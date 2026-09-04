@@ -6,6 +6,13 @@ import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
+import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import {
+    startPaystackMomoCharge,
+    submitPaystackMomoOtp,
+    assertOwnPendingPayment,
+    type MomoChargeResult,
+} from '@/lib/paystack-momo-checkout'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 import type { Database } from '@/types/supabase'
 
@@ -263,6 +270,51 @@ export async function POST(request: NextRequest) {
                 authorization_url: paystackData.data.authorization_url,
                 reference,
             })
+        }
+
+        // ── PAYSTACK MOBILE MONEY ─────────────────────────────────────────────
+        if (provider === 'paystack_momo') {
+            if (!phone || !network || !paystackMomoProviderFor(network)) {
+                return NextResponse.json({ error: 'Valid phone number and network are required' }, { status: 400 })
+            }
+
+            const finish = async (result: MomoChargeResult) => {
+                if (!result.ok) {
+                    if (result.safeToMarkFailed && !existingRef) {
+                        await supabase.from('wallet_payments' as any)
+                            .update({ status: 'failed' })
+                            .eq('id', paymentId)
+                            .eq('status', 'pending')
+                    }
+                    return NextResponse.json(result.body, { status: result.httpStatus })
+                }
+                if (result.outcome === 'paid') {
+                    const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                    await processBoostPayment(reference, {
+                        reference,
+                        amount: Math.round(boostFee * 100),
+                    })
+                }
+                return NextResponse.json(result.body)
+            }
+
+            // This route authenticates by bearer token, not cookies, so the ownership
+            // check gets the userId verifyAuth already resolved.
+            if (otpCode && existingRef) {
+                if (!await assertOwnPendingPayment(supabase, existingRef, userId)) {
+                    return NextResponse.json({ error: 'That payment is no longer waiting for a code' }, { status: 404 })
+                }
+                return finish(await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) }))
+            }
+
+            return finish(await startPaystackMomoCharge({
+                reference,
+                amountGhs: boostFee,
+                payerPhone: phone,
+                network,
+                metadata: { user_id: userId, kind: 'listing_boost', listing_id: listing.id, tier },
+                userId,
+            }))
         }
 
         // ── PAYSWITCH ─────────────────────────────────────────────────────────

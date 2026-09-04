@@ -12,6 +12,14 @@ import {
 } from '@/lib/payswitch-payment-service'
 import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
+import { shopFeeSettingKeys, resolveShopFeePercent } from '@/lib/gateway-fees'
+import { paystackMomoProviderFor } from '@/lib/paystack-momo-service'
+import {
+    startPaystackMomoCharge,
+    submitPaystackMomoOtp,
+    markPaystackMomoPending,
+    clearPaystackMomoPending,
+} from '@/lib/paystack-momo-checkout'
 import { checkMtnRegistration, registrationRequiredBody } from '@/lib/mtn-registration-gate'
 
 // Redis client for distributed idempotency across all serverless instances.
@@ -112,14 +120,16 @@ export async function POST(request: NextRequest) {
         const settings: Record<string, string> = {}
         for (const row of (settingsRows || [])) settings[row.key] = row.value
 
+        // Resolved here rather than just before the gateway branches, because the fee
+        // keys depend on which rail collects — and the price has to be settled before
+        // the order is priced, not after.
+        const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
+
         // Fetch role-specific Paystack fee from the correct table (shop_global_settings)
         const { data: paystackFeeRows } = await db
             .from('shop_global_settings')
             .select('key, value')
-            .in('key', [
-                `shop_paystack_fee_percent_${ownerRole}`,
-                'shop_paystack_fee_percent',
-            ])
+            .in('key', shopFeeSettingKeys(ownerRole, shopProvider))
         const paystackFeeMap: Record<string, string> = {}
         for (const row of (paystackFeeRows || [])) paystackFeeMap[row.key] = row.value
 
@@ -233,15 +243,13 @@ export async function POST(request: NextRequest) {
             }
 
             // --- Role-Aware Paystack Fee Resolution ---
-            // Priority: per-shop override → role-specific global → legacy global → last-resort default
-            let paystackFeePercent = 1.95 // last-resort only
-            if (shop.paystack_fee_percent !== null && shop.paystack_fee_percent !== undefined) {
-                paystackFeePercent = parseFloat(String(shop.paystack_fee_percent))
-            } else if (paystackFeeMap[`shop_paystack_fee_percent_${ownerRole}`] != null) {
-                paystackFeePercent = parseFloat(String(paystackFeeMap[`shop_paystack_fee_percent_${ownerRole}`]))
-            } else if (paystackFeeMap['shop_paystack_fee_percent'] != null) {
-                paystackFeePercent = parseFloat(String(paystackFeeMap['shop_paystack_fee_percent']))
-            }
+            // Shared with lib/shop-order-processor.ts, which re-derives this figure at
+            // settlement and rejects the order if it differs by more than five pesewas.
+            const paystackFeePercent = resolveShopFeePercent(paystackFeeMap, {
+                shopOverride: shop.paystack_fee_percent,
+                ownerRole,
+                provider: shopProvider,
+            })
             const paystackFee = Math.round(sellingPrice * (paystackFeePercent / 100) * 100) / 100
             totalAmount = Math.round((sellingPrice + paystackFee) * 100)
             pkgNetwork = pkg.network
@@ -288,7 +296,6 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
         const shopRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
         // Full metadata used by both webhook paths
@@ -300,6 +307,10 @@ export async function POST(request: NextRequest) {
             guest_phone: cleanPhone,
             payer_phone: payerClean,
             guest_email: validatedGuestEmail,
+            // Which rail priced this order. processShopOrder re-derives the fee at
+            // settlement and rejects a mismatch, so it has to resolve the same keys —
+            // and the admin setting may have been switched in between.
+            provider: shopProvider,
             fulfillment_mode: shop.fulfillment_mode,
             // Always false now — the gate above refuses instead of holding. Kept in the
             // metadata because processShopOrder still honours it for references that
@@ -391,6 +402,68 @@ export async function POST(request: NextRequest) {
                 reference: shopRef,
                 message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
             })
+        }
+
+        // ── PAYSTACK MOBILE MONEY BRANCH ─────────────────────────────────────────
+        if (shopProvider === 'paystack_momo') {
+            if (!paystackMomoProviderFor(paymentNetwork)) {
+                return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+            }
+
+            // An OTP finishes the charge that already exists. No new order, no second
+            // Redis write, and above all no second charge.
+            if (otpCode && existingRef) {
+                const rawMeta = await redis.get<any>(`shop:meta:${existingRef}`)
+                const meta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta
+                // A guest has no account to bind this to and the references are
+                // guessable, so ownership is proved by the payer's own number. Without
+                // it anyone who guesses a reference can burn a stranger's OTP attempts.
+                if (!meta || String(meta.payer_phone || '') !== String(payerClean)) {
+                    return NextResponse.json(
+                        { error: 'That payment is no longer waiting for a code' },
+                        { status: 404 }
+                    )
+                }
+                const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) })
+                return NextResponse.json(otpResult.body, otpResult.ok ? undefined : { status: otpResult.httpStatus })
+            }
+
+            // Metadata must land in Redis BEFORE the prompt — the callback reads it
+            // and a fast approval can otherwise beat the write.
+            if (!existingRef) {
+                await redis.set(
+                    `shop:meta:${shopRef}`,
+                    JSON.stringify({ ...fullMetadata, payer_msisdn: payerClean }),
+                    { ex: 86400 }
+                )
+                // There is no wallet_payments row for a guest order, so this marker is
+                // the only thing the reconciliation sweep can find it by.
+                await markPaystackMomoPending(shopRef, { kind: 'shop', slug: shopSlug })
+            }
+
+            const charge = await startPaystackMomoCharge({
+                reference: shopRef,
+                // totalAmount is in PESEWAS in this route and only this route —
+                // every other checkout holds cedis, and chargeMobileMoney multiplies
+                // by 100 internally. A missed division charges the guest 100x.
+                amountGhs: totalAmount / 100,
+                payerPhone: payerClean,
+                network: paymentNetwork,
+                email: validatedGuestEmail || undefined,
+                // Machine-shaped only. The settle path reads the real metadata back
+                // from Redis, so the shop name never has to survive a payment field.
+                metadata: { kind: 'shop', shop_id: shop.id, shop_slug: shopSlug, ref: shopRef },
+            })
+
+            if (!charge.ok) {
+                if (charge.safeToMarkFailed && !existingRef) {
+                    await redis.del(`shop:meta:${shopRef}`)
+                    await clearPaystackMomoPending(shopRef)
+                }
+                return NextResponse.json(charge.body, { status: charge.httpStatus })
+            }
+
+            return NextResponse.json(charge.body)
         }
 
         // ── PAYSWITCH BRANCH ─────────────────────────────────────────────────────

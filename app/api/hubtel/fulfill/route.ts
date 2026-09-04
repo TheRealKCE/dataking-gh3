@@ -16,7 +16,8 @@ import { logFulfillment } from '@/lib/hubtel-payment-log';
  *
  * NO LONGER THE PRIMARY PATH. USSD sales are collected by Paystack Mobile Money
  * now and fulfilled from /api/webhooks/paystack; this endpoint only fires when
- * admin_settings.ussd_payment_provider is 'hubtel' (the rollback switch), or for
+ * the USSD payment scope is set to Hubtel (Admin -> Settings -> USSD Payments,
+ * backed by admin_settings.active_payment_provider_ussd), or for
  * an AddToCart order that was already in flight when that switch was flipped.
  * It stays fully wired and deliberately ungated: anything Hubtel has already
  * charged still has to be delivered.

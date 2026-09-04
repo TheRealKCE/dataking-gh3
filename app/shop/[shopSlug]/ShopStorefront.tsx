@@ -647,12 +647,20 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            // Moolre: show OTP modal
+            // An OTP step only when the gateway asked for one. Unconditional was fine
+            // while Moolre always wanted a code; Paystack asks only on Telecel and
+            // AirtelTigo, so on MTN the modal would wait for a code that never comes
+            // while the prompt sits unanswered on the handset.
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            setOtpReference(data.reference)
-            setOtpOrderType('data')
-            setOtpRequired(true)
-            setLoading(false)
+            if (data.otpRequired) {
+                setOtpReference(data.reference)
+                setOtpOrderType('data')
+                setOtpRequired(true)
+                setLoading(false)
+            } else {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+            }
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)
@@ -709,8 +717,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            // Moolre: show OTP modal
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
+            if (!data.otpRequired) {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                return
+            }
             setOtpReference(data.reference)
             setOtpOrderType('airtime')
             setOtpRequired(true)
@@ -804,6 +816,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             }
 
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
+            if (!data.otpRequired) {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
+                return
+            }
             setOtpReference(data.reference)
             setOtpOrderType('mashup')
             setOtpRequired(true)
