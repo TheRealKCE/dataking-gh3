@@ -5,6 +5,7 @@ import {
 } from '@/lib/api-auth'
 import { sendPushToAdmins } from '@/lib/web-push'
 import { generateReferenceCode } from '@/lib/utils'
+import { fulfillApiDataOrder } from '@/lib/api-data-fulfillment'
 
 const ENDPOINT = '/api/v1/data/purchase'
 
@@ -179,106 +180,14 @@ export async function POST(request: NextRequest) {
     // ── Auto-fulfillment (SYNCHRONOUS — must complete before response) ────────
     // Running after response (fire-and-forget) causes Vercel to kill the
     // async work as soon as the HTTP response is sent.
-    let fulfillmentStatus: 'pending' | 'processing' = 'pending'
-
-    try {
-        const { data: settingsData } = await supabase
-            .from('admin_settings')
-            .select('key, value')
-            .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
-
-        const settingsMap = (settingsData || []).reduce((acc: any, curr: any) => {
-            acc[curr.key] = curr.value; return acc
-        }, {})
-
-        if (String(settingsMap.auto_fulfillment_enabled) !== 'false') {
-            let fulfillmentSettings = {
-                networks: {} as Record<string, boolean>,
-                codecraft_networks: {} as Record<string, boolean>,
-                kingflexy_networks: {} as Record<string, boolean>,
-                eazydata_networks: {} as Record<string, boolean>,
-                agentportal_networks: {} as Record<string, boolean>,
-                netpulse_networks: {} as Record<string, boolean>,
-                hendylinks_networks: {} as Record<string, boolean>,
-            }
-            if (settingsMap.fulfillment_settings) {
-                try {
-                    const parsed = typeof settingsMap.fulfillment_settings === 'string'
-                        ? JSON.parse(settingsMap.fulfillment_settings)
-                        : settingsMap.fulfillment_settings
-                    fulfillmentSettings.networks = parsed?.networks || {}
-                    fulfillmentSettings.codecraft_networks = parsed?.codecraft_networks || {}
-                    fulfillmentSettings.kingflexy_networks = parsed?.kingflexy_networks || {}
-                    fulfillmentSettings.eazydata_networks = parsed?.eazydata_networks || {}
-                    fulfillmentSettings.agentportal_networks = parsed?.agentportal_networks || {}
-                    fulfillmentSettings.netpulse_networks = parsed?.netpulse_networks || {}
-                    fulfillmentSettings.hendylinks_networks = parsed?.hendylinks_networks || {}
-                } catch { /* ignore — stays as empty, order stays pending */ }
-            }
-
-            const isDataKazina = fulfillmentSettings.networks[pkg.network] === true
-            const isCodeCraft = fulfillmentSettings.codecraft_networks[pkg.network] === true
-            const isKingFlexy = fulfillmentSettings.kingflexy_networks[pkg.network] === true
-            const isEazyData = fulfillmentSettings.eazydata_networks[pkg.network] === true
-            const isAgentPortal = fulfillmentSettings.agentportal_networks[pkg.network] === true
-            const isNetPulse = fulfillmentSettings.netpulse_networks[pkg.network] === true
-            const isHendyLinks = fulfillmentSettings.hendylinks_networks[pkg.network] === true
-
-            // Only attempt if EXACTLY one supplier is active for this network
-            const activeCount = [isDataKazina, isCodeCraft, isKingFlexy, isEazyData, isAgentPortal, isNetPulse, isHendyLinks].filter(Boolean).length
-            if (activeCount === 1) {
-                let result: { success: boolean; transactionId?: string; reference?: string; error?: string }
-
-                if (isCodeCraft) {
-                    const { fulfillOrder } = await import('@/lib/codecraft-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                } else if (isKingFlexy) {
-                    const { fulfillOrder } = await import('@/lib/kingflexy-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                } else if (isEazyData) {
-                    const { fulfillOrder } = await import('@/lib/eazydata-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                } else if (isAgentPortal) {
-                    const { fulfillOrder } = await import('@/lib/agentportal-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                } else if (isNetPulse) {
-                    const { fulfillOrder } = await import('@/lib/netpulse-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                } else if (isHendyLinks) {
-                    const { fulfillOrder } = await import('@/lib/hendylinks-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                } else {
-                    const { fulfillOrder } = await import('@/lib/fulfillment-service')
-                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-                }
-
-                if (result.success) {
-                    const supplierLabel = isCodeCraft ? 'codecraft' : isKingFlexy ? 'kingflexy' : isEazyData ? 'eazydata' : isAgentPortal ? 'agentportal' : isNetPulse ? 'netpulse' : isHendyLinks ? 'hendylinks' : 'datakazina'
-                    const orderUpdate: Record<string, any> = {
-                        status: 'processing',
-                        fulfillment_method: supplierLabel,
-                        updated_at: new Date().toISOString(),
-                    }
-                    if (result.transactionId || result.reference) {
-                        const ref = result.transactionId || result.reference
-                        if (isCodeCraft) orderUpdate.codecraft_reference = ref
-                        else if (isKingFlexy) orderUpdate.kingflexy_reference = ref
-                        else if (isEazyData) orderUpdate.eazydata_reference = ref
-                        else if (isAgentPortal) orderUpdate.agentportal_reference = ref
-                        else if (isNetPulse) orderUpdate.netpulse_reference = ref
-                        else if (isHendyLinks) orderUpdate.hendylinks_reference = ref
-                        else orderUpdate.dakazina_reference = ref
-                    }
-                    await (supabase.from('orders') as any).update(orderUpdate).eq('id', (order as any).id)
-                    fulfillmentStatus = 'processing'
-                } else {
-                    console.error(`[v1/purchase] Fulfillment failed for ${(order as any).id}: ${result.error}`)
-                }
-            }
-        }
-    } catch (e) {
-        console.error('[v1/purchase] Fulfillment error:', e)
-    }
+    const fulfillmentStatus = await fulfillApiDataOrder({
+        supabase,
+        orderId:   (order as any).id,
+        network:   pkg.network,
+        recipient: cleanPhone,
+        size:      pkg.size,
+        logPrefix: 'v1/purchase',
+    })
 
     logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'POST', statusCode: 201, responseTimeMs: Date.now() - startTime, ip })
 

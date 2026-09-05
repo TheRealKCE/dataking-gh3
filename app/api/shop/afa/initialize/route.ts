@@ -437,7 +437,7 @@ export async function POST(request: NextRequest) {
                 )
             }
 
-            const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) })
+            const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode), payerPhone: cleanPhone })
             return NextResponse.json(otpResult.body, otpResult.ok ? undefined : { status: otpResult.httpStatus })
         }
 

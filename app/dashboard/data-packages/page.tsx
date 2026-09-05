@@ -161,6 +161,10 @@ export default function DataPackagesPage() {
     const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [pollingKind, setPollingKind] = useState<'single' | 'bulk'>('single')
     const [otpRequired, setOtpRequired] = useState(false)
+    // Paystack's own instruction for this charge. It differs per number — a one-time
+    // password on some, a PIN prompt on others — so fixed copy misinforms whichever
+    // group it does not describe.
+    const [otpMessage, setOtpMessage] = useState('')
     const [otpCode, setOtpCode] = useState('')
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
     // Gateway reference kept separate from currentReferenceCode, which is the
@@ -592,6 +596,24 @@ export default function DataPackagesPage() {
 
             const data = await res.json()
 
+            // A charge is already live for this number. Rather than a dead-end error,
+            // hand the customer back to it: if it is waiting on a code, reopen the
+            // dialog for that reference, because starting a new payment would cancel
+            // the code they were sent.
+            if (!res.ok && data.resumable && data.reference) {
+                setDirectPaymentRef(data.reference)
+                setPollingKind('single')
+                if (data.otpRequired) {
+                    setOtpMessage(data.error || '')
+                    setOtpRequired(true)
+                } else {
+                    toast.info(data.error || 'A payment prompt is already waiting on your phone.')
+                    setPollingRef(data.reference)
+                }
+                setIsPurchasing(false)
+                return
+            }
+
             if (!res.ok) throw new Error(data.error || 'Payment could not be started')
 
             setPollingKind('single')
@@ -602,6 +624,7 @@ export default function DataPackagesPage() {
             }
 
             if (data.otpRequired) {
+                setOtpMessage(data.message || '')
                 setDirectPaymentRef(data.reference)
                 setOtpRequired(true)
                 setIsPurchasing(false)
@@ -935,6 +958,8 @@ export default function DataPackagesPage() {
             }
 
             if (data.otpRequired) {
+                // No dialog on this path — bulk deliberately refuses the OTP round
+                // trip, so there is no instruction to display.
                 toast.error('This basket needs OTP approval. Please pay from your wallet or try a single purchase.')
                 setIsSubmittingBulk(false)
                 return
@@ -1675,8 +1700,14 @@ export default function DataPackagesPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Purchase sheet */}
-            {selectedPackage && (() => {
+            {/* Purchase sheet.
+                Unmounted, not merely hidden, while the OTP dialog is up. Hiding it with
+                a class left it in the DOM at z-[70] with its own backdrop and Radix's
+                focus trap fighting over it, and the dialog ended up unreachable behind
+                a black screen. Nothing is lost by unmounting: every field reads from
+                component state (recipientNumber, momoPhone, singleMomoNetwork), which
+                survives, so a Cancel returns the form exactly as it was. */}
+            {selectedPackage && !otpRequired && (() => {
                 const sheetStyle = getNetworkSheetStyle(selectedPackage.network)
                 const closeSheet = () => { if (!pollingRef) setSelectedPackage(null) }
                 return (
@@ -1974,11 +2005,18 @@ export default function DataPackagesPage() {
 
             {/* Moolre OTP Dialog */}
             <Dialog open={otpRequired} onOpenChange={(open) => { if (!open) { setOtpRequired(false); setOtpCode('') } }}>
-                <DialogContent className="w-[95%] max-w-sm rounded-2xl">
+                {/* z-[90] because this page carries overlays at z-[70]; the Radix
+                    default of z-50 puts the code entry underneath them. */}
+                <DialogContent className="w-[95%] max-w-sm rounded-2xl z-[90]">
                     <DialogHeader>
                         <DialogTitle>Enter OTP</DialogTitle>
                         <DialogDescription>
-                            Your network sent a one-time code to {effectiveMomoPhone || 'your phone'}. Enter it to authorise this payment.
+                            {/* Paystack's instruction arrives without a full stop, so it
+                                has to be punctuated before ours is appended or the two
+                                sentences run together on screen. */}
+                            {(otpMessage || `Your network sent a one-time code to ${effectiveMomoPhone || 'your phone'}`)
+                                .trim().replace(/([^.!?])$/, '$1.')}
+                            {' '}Enter it below to authorise this payment. If nothing arrives within a minute, close this and try again.
                         </DialogDescription>
                     </DialogHeader>
                     <Input

@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
                         { status: 404 }
                     )
                 }
-                const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) })
+                const otpResult = await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode), payerPhone: phone })
                 return finishWalletMomo(otpResult)
             }
 

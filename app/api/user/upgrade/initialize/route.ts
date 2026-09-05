@@ -361,7 +361,7 @@ export async function POST(request: Request) {
                 if (!await assertOwnPendingPayment(supabaseAdmin, existingRef, authUser.id)) {
                     return NextResponse.json({ error: 'That payment is no longer waiting for a code' }, { status: 404 })
                 }
-                return finish(await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode) }))
+                return finish(await submitPaystackMomoOtp({ reference: existingRef, otp: String(otpCode), payerPhone: phone }))
             }
 
             return finish(await startPaystackMomoCharge({
