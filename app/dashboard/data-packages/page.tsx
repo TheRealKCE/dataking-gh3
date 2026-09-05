@@ -2015,7 +2015,11 @@ export default function DataPackagesPage() {
                     <DialogHeader>
                         <DialogTitle>Enter OTP</DialogTitle>
                         <DialogDescription>
-                            {otpMessage || `Your network sent a one-time code to ${effectiveMomoPhone || 'your phone'}.`}
+                            {/* Paystack's instruction arrives without a full stop, so it
+                                has to be punctuated before ours is appended or the two
+                                sentences run together on screen. */}
+                            {(otpMessage || `Your network sent a one-time code to ${effectiveMomoPhone || 'your phone'}`)
+                                .trim().replace(/([^.!?])$/, '$1.')}
                             {' '}Enter it below to authorise this payment. If nothing arrives within a minute, close this and try again.
                         </DialogDescription>
                     </DialogHeader>
