@@ -2104,16 +2104,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     { id: 'AT', label: 'AirtelTigo', dot: 'bg-[#2463eb]' },
                 ]
                 return (
-                    // Hidden — not unmounted — while the registration prompt is up. This
-                    // sheet sits at z-[70], above the Radix dialog's z-50 overlay, so
-                    // leaving it visible buries the prompt. Keeping it mounted preserves
-                    // the entered numbers and payment choice for a Cancel.
+                    // Hidden — not unmounted — while the registration prompt or the OTP
+                    // dialog is up. This sheet sits at z-[70], above the Radix dialog's
+                    // z-50 overlay, so leaving it visible buries either one. Keeping it
+                    // mounted preserves the entered numbers and payment choice for a
+                    // Cancel.
                     <div
                         className={cn(
                             "fixed inset-0 z-[70] flex items-end justify-center",
-                            registrationPrompt && "hidden"
+                            (registrationPrompt || otpRequired) && "hidden"
                         )}
-                        aria-hidden={!!registrationPrompt}
+                        aria-hidden={!!registrationPrompt || otpRequired}
                     >
                         <div
                             className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"

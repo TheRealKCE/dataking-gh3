@@ -1705,7 +1705,19 @@ export default function DataPackagesPage() {
                 const sheetStyle = getNetworkSheetStyle(selectedPackage.network)
                 const closeSheet = () => { if (!pollingRef) setSelectedPackage(null) }
                 return (
-                <div className="fixed inset-0 z-[70] flex items-end justify-center">
+                // Hidden — not unmounted — while the OTP dialog is up. This sheet sits
+                // at z-[70], above the Radix dialog's z-50 overlay, so leaving it
+                // visible buries the code entry completely: the dialog opens, takes
+                // focus, and the customer sees nothing but this sheet. Keeping it
+                // mounted preserves the entered numbers for a Cancel. Same treatment
+                // the storefront already gives its registration prompt.
+                <div
+                    className={cn(
+                        "fixed inset-0 z-[70] flex items-end justify-center",
+                        otpRequired && "hidden"
+                    )}
+                    aria-hidden={otpRequired}
+                >
                     <div
                         className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
                         onClick={closeSheet}
