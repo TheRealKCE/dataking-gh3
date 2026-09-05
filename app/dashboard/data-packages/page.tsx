@@ -1700,24 +1700,18 @@ export default function DataPackagesPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Purchase sheet */}
-            {selectedPackage && (() => {
+            {/* Purchase sheet.
+                Unmounted, not merely hidden, while the OTP dialog is up. Hiding it with
+                a class left it in the DOM at z-[70] with its own backdrop and Radix's
+                focus trap fighting over it, and the dialog ended up unreachable behind
+                a black screen. Nothing is lost by unmounting: every field reads from
+                component state (recipientNumber, momoPhone, singleMomoNetwork), which
+                survives, so a Cancel returns the form exactly as it was. */}
+            {selectedPackage && !otpRequired && (() => {
                 const sheetStyle = getNetworkSheetStyle(selectedPackage.network)
                 const closeSheet = () => { if (!pollingRef) setSelectedPackage(null) }
                 return (
-                // Hidden — not unmounted — while the OTP dialog is up. This sheet sits
-                // at z-[70], above the Radix dialog's z-50 overlay, so leaving it
-                // visible buries the code entry completely: the dialog opens, takes
-                // focus, and the customer sees nothing but this sheet. Keeping it
-                // mounted preserves the entered numbers for a Cancel. Same treatment
-                // the storefront already gives its registration prompt.
-                <div
-                    className={cn(
-                        "fixed inset-0 z-[70] flex items-end justify-center",
-                        otpRequired && "hidden"
-                    )}
-                    aria-hidden={otpRequired}
-                >
+                <div className="fixed inset-0 z-[70] flex items-end justify-center">
                     <div
                         className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
                         onClick={closeSheet}
@@ -2011,7 +2005,9 @@ export default function DataPackagesPage() {
 
             {/* Moolre OTP Dialog */}
             <Dialog open={otpRequired} onOpenChange={(open) => { if (!open) { setOtpRequired(false); setOtpCode('') } }}>
-                <DialogContent className="w-[95%] max-w-sm rounded-2xl">
+                {/* z-[90] because this page carries overlays at z-[70]; the Radix
+                    default of z-50 puts the code entry underneath them. */}
+                <DialogContent className="w-[95%] max-w-sm rounded-2xl z-[90]">
                     <DialogHeader>
                         <DialogTitle>Enter OTP</DialogTitle>
                         <DialogDescription>

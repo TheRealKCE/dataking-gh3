@@ -2431,7 +2431,9 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             {/* Moolre per-transaction OTP */}
             <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
-                <DialogContent className="sm:max-w-md">
+                {/* z-[110] because this page carries overlays at z-[60], z-[70] and
+                    z-[100]; the Radix default of z-50 buries the code entry. */}
+                <DialogContent className="sm:max-w-md z-[110]">
                     <DialogHeader>
                         <DialogTitle>OTP Verification</DialogTitle>
                         <DialogDescription>
