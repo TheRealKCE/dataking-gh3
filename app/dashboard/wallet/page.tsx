@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import {
     Dialog,
     DialogContent,
@@ -702,43 +701,6 @@ function WalletContent() {
                 </CardContent>
             </Card>
 
-            {/* Moolre per-transaction OTP Dialog */}
-            <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>OTP Verification</DialogTitle>
-                        <DialogDescription>
-                            Please enter the OTP sent to your phone to complete the payment.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex flex-col space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="otp">Enter OTP</Label>
-                            <Input
-                                id="otp"
-                                type="text"
-                                placeholder="Enter code"
-                                value={otpCode}
-                                onChange={(e) => setOtpCode(e.target.value)}
-                                className="h-12 text-center text-2xl tracking-widest font-bold"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="sm:justify-end">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setOtpRequired(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleVerifyOtp}
-                            disabled={isProcessing || !otpCode}
-                            className="bg-blue-600 hover:bg-blue-700"
-                        >
-                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
             {/* The gateway asked for a one-time code. Every other checkout in the app
                 has had this dialog; this page had the state, the handler and the
                 auto-submit effect but nothing to type into, so a code that arrived
