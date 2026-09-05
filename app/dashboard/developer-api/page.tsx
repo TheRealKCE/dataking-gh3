@@ -86,7 +86,6 @@ const LANGS: { id: Lang; label: string }[] = [
     { id: 'php',        label: 'PHP'        },
 ]
 
-const BASE = 'https://www.dataking.qzz.io'
 const KEY  = 'YOUR_API_KEY'
 // Apex, NOT www. www.arhmsgh.com answers every /api request with a 307 to the apex,
 // and a cross-host redirect makes clients drop the Authorization header -- curl and
@@ -385,15 +384,6 @@ export default function DeveloperApiPage() {
         [tab]
     )
 
-    return (
-        <div className="space-y-6 max-w-4xl">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Developer API</h1>
-                <p className="text-muted-foreground text-sm mt-1">
-                    Integrate DataKing into your own apps. Agent or dealer account required.
-                </p>
-            </div>
     const renderKeyCard = (kind: KeyKind) => {
         const meta = KEY_META[kind]
         const apiKey = keyOf(kind)
