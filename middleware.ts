@@ -130,10 +130,10 @@ function getSubdomain(request: NextRequest): string | null {
         return localMatch ? localMatch[1] : null
     }
 
-    // Standard domain (arhmsgh.com, www.arhmsgh.com, marketplace.arhmsgh.com)
-    if (host.endsWith('arhmsgh.com')) {
-        // marketplace.arhmsgh.com -> 'marketplace'
-        // www.arhmsgh.com, arhmsgh.com -> null
+    // Standard domain (arhmsgh.com, www.arhmsgh.com, marketplace.arhmsgh.com or qzz.io equivalents)
+    if (host.endsWith('arhmsgh.com') || host.endsWith('qzz.io')) {
+        // marketplace.arhmsgh.com / marketplace.dataking.qzz.io -> 'marketplace'
+        // www.arhmsgh.com, www.dataking.qzz.io -> null
         if (parts.length > 2 && parts[0] !== 'www') {
             return parts[0]
         }

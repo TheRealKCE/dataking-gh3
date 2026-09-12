@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         const { data: shop } = await db
             .from('shop_profiles')
             .select('id, shop_name, owner_id, approval_status, is_active, owner_phone, whatsapp_number, owner:users!shop_profiles_owner_id_fkey(role)')
-            .eq('shop_slug', shopSlug)
+            .ilike('shop_slug', shopSlug.trim())
             .single()
 
         if (!shop || shop.approval_status !== 'approved' || !shop.is_active) {

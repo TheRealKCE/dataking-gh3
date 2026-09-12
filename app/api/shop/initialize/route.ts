@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
                 airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at,
                 owner:users!shop_profiles_owner_id_fkey(role, email)
             `)
-            .eq('shop_slug', shopSlug)
+            .ilike('shop_slug', shopSlug.trim())
             .single()
 
         if (shopError || !shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
