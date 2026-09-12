@@ -546,7 +546,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: moolreResponse.error || 'Payment initialization failed' }, { status: 500 })
         }
 
-        if (moolreResponse.status === '200_OTP_REQ') {
+        if (moolreResponse.otpRequired || moolreResponse.status === '200_OTP_REQ') {
             if (!existingRef) {
                 await redis.set(`shop:meta:${shopRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
             }
