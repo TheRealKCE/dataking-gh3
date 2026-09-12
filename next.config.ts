@@ -156,26 +156,18 @@ const nextConfig: NextConfig = {
 
 const withPWAConfig = withPWA({
     dest: 'public',
-    cacheOnFrontEndNav: true,
-    aggressiveFrontEndNavCaching: true,
+    cacheOnFrontEndNav: false,
+    aggressiveFrontEndNavCaching: false,
     reloadOnOnline: true,
     disable: process.env.NODE_ENV === 'development',
     customWorkerSrc: path.resolve(process.cwd(), 'worker'),
     workboxOptions: {
         disableDevLogs: true,
-        // Exclude the homepage HTML from the PWA cache.
-        // The landing page is server-rendered and controlled by admin toggles
-        // (e.g. `landing_rc_only_enabled`). Caching it causes users to see a
-        // stale version of the page instantly, then a jarring swap once the
-        // Service Worker fetches the updated HTML in the background.
-        // By excluding it, the browser always fetches the root URL from the
-        // network, ensuring the correct page is shown immediately.
         exclude: [
-            // Never cache the root HTML document
-            /^\//,
-            // Keep existing defaults: don't cache Next.js build manifests
+            // Don't cache Next.js build manifests or middleware manifests
             /build-manifest\.json$/,
             /react-loadable-manifest\.json$/,
+            /middleware-manifest\.json$/,
         ],
     },
 })

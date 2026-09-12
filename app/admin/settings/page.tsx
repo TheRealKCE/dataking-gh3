@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
     resolveProviderForScope,
@@ -815,13 +816,13 @@ export default function AdminSettingsPage() {
                                     <p className="font-semibold text-sm">Manage Verification Queue</p>
                                     <p className="text-xs text-muted-foreground">Approve or reject seller verification requests, view applicant details, and add rejection notes.</p>
                                 </div>
-                                <a
+                                <Link
                                     href="/classifieds/admin/sellers"
                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap ml-4 flex-shrink-0"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
                                     Open Verification Queue
-                                </a>
+                                </Link>
                             </div>
                             <p className="text-xs text-muted-foreground mt-3">
                                 You can also access this from the sidebar: <strong>Classifieds → Seller Verification</strong>.
