@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             const { data: shopRow } = await supabase
                 .from('shop_profiles')
                 .select('id, shop_name, owner_id, utility_fee_percent, utilities_enabled, approval_status, is_active')
-                .eq('shop_slug', shopSlug.trim())
+                .ilike('shop_slug', shopSlug.trim())
                 .maybeSingle()
 
             if (!shopRow || shopRow.approval_status !== 'approved' || shopRow.is_active !== true) {
