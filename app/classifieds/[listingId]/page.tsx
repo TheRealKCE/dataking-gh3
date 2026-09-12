@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { notFound, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { getListingById, getListingsWithPagination } from '@/lib/classifieds-queries'
 import { ImageCarousel } from '@/components/classifieds/image-carousel'
 import { ContactRevealButton } from '@/components/classifieds/contact-reveal-button'
@@ -317,9 +318,9 @@ export default function ListingDetailPage({
             {/* Header */}
             <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
                 <div className="max-w-2xl mx-auto px-4 py-4">
-                    <a href="/classifieds" className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                    <Link href="/classifieds" className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
                         ← Back to listings
-                    </a>
+                    </Link>
                 </div>
             </div>
 
