@@ -28,22 +28,27 @@ import {
     Eye,
     EyeOff,
     Activity,
-    Wallet,
     ShoppingCart,
-    Zap,
     Coins,
     Webhook,
-    Phone,
-    Receipt,
-    Package,
-    GraduationCap,
-    IdCard,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, cn } from '@/lib/utils'
+// The endpoint catalogue and its snippet generator are shared with the public docs
+// at /docs — see lib/api-docs.ts for why they are not defined here any more.
+import {
+    type Lang,
+    type KeyKind,
+    type Endpoint,
+    LANGS,
+    BASE,
+    STANDARD_KEY_SAMPLE,
+    COMMISSION_KEY_SAMPLE,
+    snippetsFor,
+    STANDARD_ENDPOINTS,
+    COMMISSION_ENDPOINTS,
+} from '@/lib/api-docs'
 
-type Lang = 'curl' | 'javascript' | 'nodejs' | 'python' | 'php'
-type KeyKind = 'standard' | 'commission'
 type Tab = 'standard' | 'commission' | 'webhooks'
 
 interface ApiKey {
@@ -80,24 +85,6 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
     revoked: { label: 'Revoked',          className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 }
 
-const LANGS: { id: Lang; label: string }[] = [
-    { id: 'curl',       label: 'cURL'       },
-    { id: 'javascript', label: 'JavaScript' },
-    { id: 'nodejs',     label: 'Node.js'    },
-    { id: 'python',     label: 'Python'     },
-    { id: 'php',        label: 'PHP'        },
-]
-
-// Apex, NOT www. www.arhmsgh.com answers every /api request with a 307 to the apex,
-// and a cross-host redirect makes clients drop the Authorization header -- curl and
-// axios both do, by design. A partner copying a www sample gets 401 no matter how
-// valid their key is, with nothing in the response to explain why. Verified:
-//   > Host: www.arhmsgh.com   Authorization: <key>   -> 307
-//   > Host: arhmsgh.com       (no Authorization)     -> 401
-const BASE = 'https://arhmsgh.com'
-const STANDARD_KEY_SAMPLE   = 'kf_live_your_api_key_here'
-const COMMISSION_KEY_SAMPLE = 'kf_cs_live_your_commission_key_here'
-
 const KEY_META: Record<KeyKind, { title: string; blurb: string; empty: string; icon: React.ElementType }> = {
     standard: {
         title: 'Standard API Key',
@@ -112,160 +99,6 @@ const KEY_META: Record<KeyKind, { title: string; blurb: string; empty: string; i
         icon: Coins,
     },
 }
-
-// ─── Endpoint reference ──────────────────────────────────────────────────────
-// Snippets are generated from the method, path and body rather than written out
-// five times per endpoint. The previous hand-written version ran to 250 lines for
-// four endpoints; there are twelve now, and the copies had already drifted.
-
-interface Endpoint {
-    icon: React.ElementType
-    method: 'GET' | 'POST'
-    path: string
-    label: string
-    desc: string
-    body?: Record<string, any>
-    query?: string
-    /** Which key the snippet should show in the Authorization header. */
-    keyKind?: KeyKind
-}
-
-/**
- * Env-var names the snippets read the key from.
- *
- * The samples deliberately do NOT show a literal key. Copying a doc snippet verbatim
- * is the most common way a key ends up committed to git — where deleting the line
- * later does not remove it from history — or, in a bundled frontend, inlined into
- * JavaScript served to every visitor. Showing the variable is the same amount of
- * typing and fails safe.
- */
-const ENV_VAR: Record<KeyKind, string> = {
-    standard:   'ARHMS_API_KEY',
-    commission: 'ARHMS_COMMISSION_KEY',
-}
-
-function snippetsFor(ep: Endpoint): Record<Lang, string> {
-    const url = `${BASE}${ep.path}${ep.query ? `?${ep.query}` : ''}`
-    const ENV = ENV_VAR[ep.keyKind ?? 'standard']
-    const json = ep.body ? JSON.stringify(ep.body, null, 2) : null
-    const compact = ep.body ? JSON.stringify(ep.body) : null
-
-    return {
-        curl: ep.body
-            ? `curl -X POST ${url} \\\n  -H "Authorization: $${ENV}" \\\n  -H "Content-Type: application/json" \\\n  -d '${compact}'`
-            : `curl -X GET "${url}" \\\n  -H "Authorization: $${ENV}"`,
-
-        // Marked server-side deliberately: /api/v2 sends Access-Control-Allow-Origin: *,
-        // so this call SUCCEEDS from a browser and looks correct — while shipping the
-        // key to everyone who opens DevTools.
-        javascript: ep.body
-            ? `// Server-side only — never from browser code.\nconst res = await fetch('${url}', {\n  method: 'POST',\n  headers: {\n    'Authorization': process.env.${ENV},\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify(${json})\n})\nconst data = await res.json()`
-            : `// Server-side only — never from browser code.\nconst res = await fetch('${url}', {\n  headers: { 'Authorization': process.env.${ENV} }\n})\nconst data = await res.json()`,
-
-        nodejs: ep.body
-            ? `const axios = require('axios')\n\nconst { data } = await axios.post(\n  '${url}',\n  ${json?.split('\n').join('\n  ')},\n  { headers: { Authorization: process.env.${ENV} } }\n)`
-            : `const axios = require('axios')\n\nconst { data } = await axios.get(\n  '${url}',\n  { headers: { Authorization: process.env.${ENV} } }\n)`,
-
-        python: ep.body
-            ? `import os, requests\n\nres = requests.post(\n    '${url}',\n    headers={'Authorization': os.environ['${ENV}']},\n    json=${json?.replace(/true/g, 'True').replace(/false/g, 'False').split('\n').join('\n    ')}\n)\nprint(res.json())`
-            : `import os, requests\n\nres = requests.get(\n    '${url}',\n    headers={'Authorization': os.environ['${ENV}']}\n)\nprint(res.json())`,
-
-        php: ep.body
-            ? `$ch = curl_init('${url}');\ncurl_setopt_array($ch, [\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_POST => true,\n  CURLOPT_HTTPHEADER => ['Authorization: ' . getenv('${ENV}'), 'Content-Type: application/json'],\n  CURLOPT_POSTFIELDS => '${compact}',\n]);\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`
-            : `$ch = curl_init('${url}');\ncurl_setopt_array($ch, [\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_HTTPHEADER => ['Authorization: ' . getenv('${ENV}')],\n]);\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`,
-    }
-}
-
-const STANDARD_ENDPOINTS: Endpoint[] = [
-    {
-        icon: Package, method: 'GET', path: '/api/v2/packages', label: 'List packages',
-        desc: 'Every available bundle with your role-specific price. Call this first — it is the only way to know which network/size pairs exist.',
-        query: 'network=MTN',
-    },
-    {
-        icon: ShoppingCart, method: 'POST', path: '/api/v2/data/purchase', label: 'Buy a bundle',
-        desc: 'Charges your wallet atomically. `reference` is your idempotency key — sending the same one twice returns the existing order without charging again.',
-        body: { network: 'MTN', volume_gb: 5, recipient: '0551617309', reference: 'order_001' },
-    },
-    {
-        icon: Zap, method: 'POST', path: '/api/v2/data/bulk', label: 'Buy up to 100',
-        desc: 'Every order is validated and priced before the wallet is touched, so a bad entry costs nothing.',
-        body: { orders: [
-            { network: 'MTN', volume_gb: 5, recipient: '0551617309', reference: 'b_001' },
-            { network: 'Telecel', volume_gb: 2, recipient: '0201234567', reference: 'b_002' },
-        ] },
-    },
-    {
-        icon: Phone, method: 'POST', path: '/api/v2/airtime/purchase', label: 'Send airtime',
-        desc: 'Networks: MTN, Telecel, AT. Priced with your ordinary role fee, same as the dashboard. Set `use_exact_amount` to charge the fee on top instead of taking it out of the amount.',
-        body: { network: 'MTN', amount: 10, recipient: '0551617309', reference: 'air_001' },
-    },
-    {
-        icon: GraduationCap, method: 'GET', path: '/api/v2/results-checker/types', label: 'Checker catalogue',
-        desc: 'WAEC and BECE checkers with your role price, bulk tiers and live stock. Vouchers are sold from stock we hold, so `available: 0` means a purchase will fail rather than back-order.',
-    },
-    {
-        icon: GraduationCap, method: 'POST', path: '/api/v2/results-checker/purchase', label: 'Buy checkers',
-        desc: 'Settles immediately — the PINs are in the response, no polling. Up to 50 per request. Out of stock returns 409 and your wallet is untouched.',
-        body: { type_id: 'a3f1c2d4-5e6f-7081-92a3-b4c5d6e7f809', quantity: 2, reference: 'rc_001' },
-    },
-    {
-        icon: IdCard, method: 'GET', path: '/api/v2/afa/pricing', label: 'AFA price & fields',
-        desc: 'What a registration costs you, plus the accepted ID types with their formats and the valid regions. Build your form from this rather than hardcoding the lists.',
-    },
-    {
-        icon: IdCard, method: 'POST', path: '/api/v2/afa/register', label: 'Register AFA',
-        desc: 'MTN AFA 30-day registration. Charges your wallet and files the application — there is no upstream API, an agent completes it by hand, so `status` stays pending until then. Applicant must be 18+ and the id_number must match the id_type format.',
-        body: {
-            full_name: 'Kwame Mensah', phone: '0551617309',
-            id_type: 'Ghana Card', id_number: 'GHA-123456789-0', date_of_birth: '1996-04-12',
-            region: 'Ashanti', location: 'Kumasi', reference: 'afa_001',
-        },
-    },
-    {
-        icon: Wallet, method: 'GET', path: '/api/v2/wallet/balance', label: 'Wallet balance',
-        desc: 'Your spending balance in GHS. Top up from the dashboard wallet page.',
-    },
-    {
-        icon: Clock, method: 'GET', path: '/api/v2/orders/order_001', label: 'Order status',
-        desc: 'Data, airtime, AFA and result checker orders — the `type` field says which you got. Bill payments have their own endpoint on the Commission API tab. Status flows pending → processing → completed | failed; a completed checker order returns its PINs again.',
-    },
-]
-
-const COMMISSION_ENDPOINTS: Endpoint[] = [
-    {
-        icon: Package, method: 'GET', path: '/api/v2/utilities/billers', label: 'Biller catalogue',
-        desc: 'Every biller, including ones an admin has switched off, so your picker can grey them out instead of guessing. Read min_amount / max_amount from here rather than hardcoding them.',
-        keyKind: 'commission',
-    },
-    {
-        icon: Receipt, method: 'GET', path: '/api/v2/utilities/lookup', label: 'Verify an account',
-        desc: 'Resolves a smartcard, IUC or meter number to the customer name. Show it back to your user before charging — a mistyped digit belongs to somebody else. ECG answers a phone number with a list of meters in `meters`; every other biller fills `account_name` instead. 404 = no such account, 502 = provider unreachable, retry.',
-        query: 'biller=dstv&account=7041234567',
-        keyKind: 'commission',
-    },
-    {
-        icon: Receipt, method: 'POST', path: '/api/v2/utilities/pay', label: 'Pay a bill',
-        desc: 'Billers: ecg, ghana_water, dstv, gotv, startimes. ECG and Ghana Water need `phone`; Ghana Water also needs `email` for its receipt. For ECG, `account` is the specific meter from lookup. The account is re-verified server-side before any money moves.',
-        body: { biller: 'dstv', account: '7041234567', amount: 65.00, reference: 'bill_dstv_7041234567_01' },
-        keyKind: 'commission',
-    },
-    {
-        icon: Clock, method: 'GET', path: '/api/v2/utilities/orders/UTIL-DSTV-3f9a2b1c4d5e6f70', label: 'Bill status',
-        desc: 'Poll with the reference from the /pay RESPONSE — ours, not the one you sent. commission_earned stays null until the order completes.',
-        keyKind: 'commission',
-    },
-    {
-        icon: Coins, method: 'GET', path: '/api/v2/commission/balance', label: 'Commission balance',
-        desc: 'What you have earned. Separate from your spending wallet.',
-        keyKind: 'commission',
-    },
-    {
-        icon: Activity, method: 'GET', path: '/api/v2/commission/transactions', label: 'Earnings statement',
-        desc: 'One row per bill payment that paid a commission. Paged — pass ?page= and ?limit= (max 100).',
-        keyKind: 'commission',
-    },
-]
 
 export default function DeveloperApiPage() {
     const { dbUser } = useAuth()
