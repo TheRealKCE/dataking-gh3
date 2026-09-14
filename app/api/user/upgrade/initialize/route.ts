@@ -68,11 +68,25 @@ export async function POST(request: Request) {
                 'agent_upgrade_price_14d',
                 'agent_upgrade_price_30d',
                 'agent_upgrade_price_permanent',
+                'agent_plan_enabled_3d',
+                'agent_plan_enabled_14d',
+                'agent_plan_enabled_30d',
+                'agent_plan_enabled_permanent',
                 'active_payment_provider_web',
             ])
 
         const settingsMap: Record<string, any> = {}
         for (const row of (settings || [])) settingsMap[row.key] = row.value
+
+        // Admins can switch individual plans off. Only block new checkouts — a
+        // Moolre OTP submit (existingRef set) belongs to a checkout already started.
+        const requestedPlan = ['3d', '14d', 'permanent'].includes(plan) ? plan : '30d'
+        if (!existingRef && settingsMap[`agent_plan_enabled_${requestedPlan}`] === 'false') {
+            return NextResponse.json(
+                { error: 'This plan is currently unavailable. Please choose another plan.' },
+                { status: 400 }
+            )
+        }
 
         // Provider resolution: body takes priority (frontend toggle), fall back to admin setting.
         // The admin setting is the only source of truth. The body used to win, which
