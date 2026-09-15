@@ -18,7 +18,7 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
-import { GlobalLoader } from '@/components/ui/global-loader'
+import { NavProgress } from '@/components/ui/nav-progress'
 import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
@@ -99,7 +99,7 @@ export default async function RootLayout({
                     <AuthProvider>
                         <UIProvider>
                             <Suspense fallback={null}>
-                                <GlobalLoader />
+                                <NavProgress />
                             </Suspense>
                             {children}
                             <SystemAnnouncementModal initialAnnouncement={systemAnnouncement as any} />
