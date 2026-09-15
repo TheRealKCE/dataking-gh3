@@ -77,6 +77,8 @@ const rateLimiters = redis ? {
     ordersBulk: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 m') }),
     // Open to every logged-in user, and each call consumes shared Agent Portal quota
     mtnRegCheck: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
+    // Admin-only, but each call fans out to up to 50 Eazy Data lookups
+    up2uCheck: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     // ── Payments ──────────────────────────────────────────────
     paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     paymentsVerify: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
@@ -413,6 +415,10 @@ export async function middleware(request: NextRequest) {
             identifier = authUser?.id ?? ip
         } else if (pathname === '/api/admin/get-prices') {
             limiter = rateLimiters?.general
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/admin/up2u-check') {
+            // Must sit above the /api/admin catch-all or it never matches
+            limiter = rateLimiters?.up2uCheck
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname.startsWith('/api/admin')) {
             limiter = rateLimiters?.admin
