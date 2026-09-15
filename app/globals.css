@@ -190,6 +190,17 @@
     scroll-padding-top: 60px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* The grey flash Android paints over a tapped element lags behind the
+       press and reads as sluggishness; the app's own active: states give the
+       feedback instead. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* No double-tap-to-zoom on controls, so older Android WebViews fire the tap
+     immediately instead of holding it to see whether a second tap follows.
+     Pinch-zoom is unaffected. */
+  a, button, [role="button"], summary, label, input, select, textarea {
+    touch-action: manipulation;
   }
 
   body {
