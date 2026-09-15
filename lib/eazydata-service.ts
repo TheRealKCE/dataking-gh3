@@ -435,6 +435,10 @@ export async function checkUp2uDelivery(phoneNumber: string): Promise<Up2uLookup
             data = JSON.parse(rawText)
         } catch {
             console.error(`[EazyData UP2U] Non-JSON response (HTTP ${response.status}):`, rawText.slice(0, 300))
+            // An unknown route comes back as the site's HTML 404 page, not JSON
+            if (response.status === 404) {
+                return { success: false, phone, records: [], error: 'UP2U endpoint not found (HTTP 404) - confirm the Eazy Data API path' }
+            }
             return { success: false, phone, records: [], error: `Unexpected response format (HTTP ${response.status})` }
         }
 
