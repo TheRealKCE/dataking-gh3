@@ -103,6 +103,20 @@ export function snippetsFor(ep: Endpoint): Record<Lang, string> {
     }
 }
 
+/**
+ * Every event we will POST to a registered endpoint.
+ *
+ * Defined here because the dashboard's Webhooks tab and the public docs both list
+ * them, and a partner switching on `event` cannot afford the two to disagree.
+ */
+export const WEBHOOK_EVENTS: { event: string; when: string; keyKind: KeyKind }[] = [
+    { event: 'airtime.completed',  when: 'The network confirmed the top-up reached the beneficiary.', keyKind: 'standard' },
+    { event: 'airtime.failed',     when: 'The provider refused or could not deliver it.',             keyKind: 'standard' },
+    { event: 'utility.completed',  when: 'The biller accepted the payment.',                          keyKind: 'commission' },
+    { event: 'utility.failed',     when: 'The biller rejected it; nothing was delivered.',            keyKind: 'commission' },
+    { event: 'utility.refunded',   when: 'A failed bill payment was credited back to your wallet.',   keyKind: 'commission' },
+]
+
 export const STANDARD_ENDPOINTS: Endpoint[] = [
     {
         icon: Package, method: 'GET', path: '/api/v2/packages', label: 'List packages',
