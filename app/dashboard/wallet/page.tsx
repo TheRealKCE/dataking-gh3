@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, Suspense } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { refreshDashboardSummary } from '@/hooks/use-dashboard-summary'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -85,6 +86,7 @@ function WalletContent() {
         if (success === 'true') {
             toast.success('Wallet topped up successfully!')
             fetchWalletData()
+            refreshDashboardSummary()
             router.replace('/dashboard/wallet')
         } else if (paystackRef && !success && !error) {
             // Returning from Paystack checkout — start polling for webhook completion
@@ -132,6 +134,7 @@ function WalletContent() {
                         setIsProcessing(false)
                         toast.success('Payment completed successfully!')
                         fetchWalletData()
+                        refreshDashboardSummary()
                         setTopUpAmount('')
                         router.replace('/dashboard/wallet')
                     } else if (data.status === 'failed') {
