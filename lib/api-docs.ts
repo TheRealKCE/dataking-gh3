@@ -124,7 +124,7 @@ export const STANDARD_ENDPOINTS: Endpoint[] = [
     },
     {
         icon: Phone, method: 'POST', path: '/api/v2/airtime/purchase', label: 'Send airtime',
-        desc: 'Networks: MTN, Telecel, AT. Priced with your ordinary role fee, same as the dashboard. Set `use_exact_amount` to charge the fee on top instead of taking it out of the amount.',
+        desc: 'Networks: MTN, Telecel, AT. Priced with your ordinary role fee, same as the dashboard. Set `use_exact_amount` to charge the fee on top instead of taking it out of the amount. The provider will not send less than GHS 1.00, and by default the fee comes OUT of `amount` — so send at least GHS 1.06, or set `use_exact_amount` and send 1.00.',
         body: { network: 'MTN', amount: 10, recipient: '0551617309', reference: 'air_001' },
     },
     {
