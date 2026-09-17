@@ -623,9 +623,11 @@ ARHMS_COMMISSION_KEY=${COMMISSION_KEY_SAMPLE}`}
                     {tab === 'webhooks' ? (
                         <div className="space-y-4 text-sm">
                             <p className="text-muted-foreground">
-                                Airtime and bill payments settle asynchronously — sometimes instantly, sometimes
-                                minutes later when the provider calls back. Rather than polling every order, register
-                                an HTTPS endpoint and we will POST to it the moment an order reaches a terminal state.
+                                Data bundles, airtime, AFA registrations and bill payments all settle
+                                asynchronously — sometimes instantly, sometimes minutes later when the provider calls
+                                back. Rather than polling every order, register an HTTPS endpoint and we will POST to
+                                it when an order reaches a terminal state. Airtime and bills are sent the instant they
+                                settle; data and AFA are swept within about a minute.
                             </p>
 
                             {/* Configure your endpoint — one card per key kind, because each

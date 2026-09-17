@@ -110,8 +110,12 @@ export function snippetsFor(ep: Endpoint): Record<Lang, string> {
  * them, and a partner switching on `event` cannot afford the two to disagree.
  */
 export const WEBHOOK_EVENTS: { event: string; when: string; keyKind: KeyKind }[] = [
+    { event: 'data.completed',     when: 'The supplier delivered the bundle to the recipient.',        keyKind: 'standard' },
+    { event: 'data.failed',        when: 'The supplier could not deliver it. Check your wallet — a refund is manual.', keyKind: 'standard' },
     { event: 'airtime.completed',  when: 'The network confirmed the top-up reached the beneficiary.', keyKind: 'standard' },
     { event: 'airtime.failed',     when: 'The provider refused or could not deliver it.',             keyKind: 'standard' },
+    { event: 'afa.completed',      when: 'An agent filed the AFA registration with MTN.',             keyKind: 'standard' },
+    { event: 'afa.failed',         when: 'The registration could not be completed.',                  keyKind: 'standard' },
     { event: 'utility.completed',  when: 'The biller accepted the payment.',                          keyKind: 'commission' },
     { event: 'utility.failed',     when: 'The biller rejected it; nothing was delivered.',            keyKind: 'commission' },
     { event: 'utility.refunded',   when: 'A failed bill payment was credited back to your wallet.',   keyKind: 'commission' },
