@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { createServerClient } from '@/lib/supabase'
+import { commissionSharePercent } from '@/lib/commission-earning'
 
 /**
  * Commission wallet for the dashboard.
@@ -22,11 +23,16 @@ export async function GET() {
             .eq('owner_id', user.id)
             .maybeSingle()
 
-        const { data: recent } = await (supabase.from('commission_transactions') as any)
-            .select('id, source, amount, description, reference, created_at')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(10)
+        const [{ data: recent }, sharePercent] = await Promise.all([
+            (supabase.from('commission_transactions') as any)
+                .select('id, source, amount, description, reference, created_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(20),
+            // The same figure lib/commission-earning pays out with, so the page can
+            // never state a rate the credit does not use.
+            commissionSharePercent(supabase),
+        ])
 
         // No row until the first earning — report zero rather than 404.
         return NextResponse.json({
@@ -37,6 +43,7 @@ export async function GET() {
                 total_withdrawn: Number((wallet as any)?.total_withdrawn ?? 0),
                 currency:        'GHS',
             },
+            share_percent: sharePercent,
             transactions: (recent as any[]) || [],
         })
     } catch {

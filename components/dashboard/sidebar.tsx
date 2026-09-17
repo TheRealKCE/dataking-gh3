@@ -39,6 +39,7 @@ import {
     Zap,
     Download,
     Code2,
+    Percent,
     CreditCard,
     Loader2,
     Receipt,
@@ -71,6 +72,7 @@ const userNavItems = [
     { href: '/dashboard/profile', label: 'Profile', icon: User },
     { href: '/dashboard/install', label: 'Download App', icon: Download },
     { href: '/dashboard/developer-api', label: 'Developer API', icon: Code2 },
+    { href: '/dashboard/commission-wallet', label: 'Commission Wallet', icon: Percent },
 ]
 
 const adminNavItems = [
