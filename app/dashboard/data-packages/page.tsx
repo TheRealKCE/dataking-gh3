@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
+import { refreshDashboardSummary } from '@/hooks/use-dashboard-summary'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
@@ -214,7 +215,6 @@ export default function DataPackagesPage() {
         fetchWalletBalance()
         fetchOrdersToday()
         fetchMashupSetting()
-        fetchPaymentSettings()
     }, [dbUser])
 
     // Prefill the MoMo number from the account profile
@@ -298,6 +298,7 @@ export default function DataPackagesPage() {
                     }
 
                     setOrdersToday(prev => prev + placedOrders.length)
+                    refreshDashboardSummary()
                     toast.success('Payment received — your order is being processed!')
                 } else if (data.status === 'failed') {
                     clearInterval(interval)
@@ -325,25 +326,18 @@ export default function DataPackagesPage() {
         }
     }, [bulkText])
 
+    // One request for both groups of settings. They were two calls to the same
+    // endpoint, fired together on mount — and on a phone each one is a round
+    // trip before the page can price anything.
     const fetchMashupSetting = async () => {
         try {
-            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden')
-            if (res.ok) {
-                const settings = await res.json()
-                setHideMashup(String(settings.special_mtn_mashup_hidden) === 'true')
-                setHideExpressMtn(String(settings.express_mtn_hidden) === 'true')
-                setHideStandardMtn(String(settings.standard_mtn_hidden) === 'true')
-            }
-        } catch (_) {
-            // fallback
-        }
-    }
-
-    const fetchPaymentSettings = async () => {
-        try {
-            const res = await fetch('/api/admin-settings?keys=active_payment_provider_web,paystack_fee_percent,agent_paystack_fee_percent')
+            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden,active_payment_provider_web,paystack_fee_percent,agent_paystack_fee_percent')
             if (!res.ok) return
             const settings = await res.json()
+
+            setHideMashup(String(settings.special_mtn_mashup_hidden) === 'true')
+            setHideExpressMtn(String(settings.express_mtn_hidden) === 'true')
+            setHideStandardMtn(String(settings.standard_mtn_hidden) === 'true')
 
             setWebPaymentProvider(resolveProvider(settings.active_payment_provider_web))
 
@@ -576,6 +570,7 @@ export default function DataPackagesPage() {
             })
             setWalletBalance(typeof data.order?.new_balance === 'number' ? data.order.new_balance : (prev: number) => prev - effectivePrice)
             setOrdersToday(prev => prev + 1)
+            refreshDashboardSummary()
             toast.success('Order placed successfully!')
         } catch (error: any) {
             toast.error(error.message || 'Failed to place order')
@@ -1065,6 +1060,7 @@ export default function DataPackagesPage() {
             setBulkText('')
             fetchWalletBalance()
             fetchOrdersToday()
+            refreshDashboardSummary()
 
         } catch (error: any) {
             toast.error(error.message || 'Error submitting bulk orders')
