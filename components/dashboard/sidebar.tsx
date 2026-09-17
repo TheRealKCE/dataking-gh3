@@ -89,6 +89,7 @@ const adminNavItems = [
     { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
+    { href: '/admin/commission-withdrawals', label: 'Commission Payouts', icon: Percent },
     { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
