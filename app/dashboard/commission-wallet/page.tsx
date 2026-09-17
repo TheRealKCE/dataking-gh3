@@ -20,9 +20,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Coins, Percent, RefreshCw, Receipt, ArrowRight, Banknote, Loader2 } from 'lucide-react'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Coins, Percent, RefreshCw, Receipt, ArrowRight, ArrowLeftRight, Banknote, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, cn } from '@/lib/utils'
+import { refreshDashboardSummary } from '@/hooks/use-dashboard-summary'
 
 interface Wallet {
     balance: number
@@ -83,6 +92,9 @@ export default function CommissionWalletPage() {
     const [sharePercent, setSharePercent] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [transferOpen, setTransferOpen] = useState(false)
+    const [transferAmount, setTransferAmount] = useState('')
+    const [transferring, setTransferring] = useState(false)
 
     // Payout form
     const [amount, setAmount] = useState('')
@@ -170,6 +182,43 @@ export default function CommissionWalletPage() {
         }
     }
 
+    // Transfer to the main wallet — the instant, no-fee alternative to a payout.
+    const submitTransfer = async () => {
+        const amount = Number(transferAmount)
+        if (!Number.isFinite(amount) || amount <= 0) {
+            toast.error('Enter an amount to transfer.')
+            return
+        }
+        if (amount > balance) {
+            toast.error('That is more than your commission balance.')
+            return
+        }
+
+        setTransferring(true)
+        try {
+            const res = await fetch('/api/user/commission-wallet/transfer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount }),
+            })
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Could not complete the transfer.')
+
+            toast.success(`${ghs(json.amount)} moved to your main wallet.`)
+            setTransferOpen(false)
+            setTransferAmount('')
+            // Both balances changed: this page's, and the one the dashboard and
+            // wallet page show.
+            if (json.wallet) setWallet(json.wallet)
+            refreshDashboardSummary()
+            load()
+        } catch (e: any) {
+            toast.error(e?.message || 'Could not complete the transfer.')
+        } finally {
+            setTransferring(false)
+        }
+    }
+
     return (
         <div className="space-y-6 max-w-4xl">
             <div className="flex items-start justify-between gap-3">
@@ -190,22 +239,38 @@ export default function CommissionWalletPage() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                    { label: 'Available', value: wallet?.balance },
-                    { label: 'Total earned', value: wallet?.total_earned },
-                    { label: 'Withdrawn', value: wallet?.total_withdrawn },
-                ].map(stat => (
-                    <Card key={stat.label}>
-                        <CardContent className="p-4">
-                            <p className="text-xs text-muted-foreground">{stat.label}</p>
-                            {loading && !wallet
-                                ? <Skeleton className="h-7 w-28 mt-1" />
-                                : <p className="text-2xl font-black tabular-nums mt-0.5">{ghs(stat.value ?? 0)}</p>}
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+            {/* Balance */}
+            <Card className="overflow-hidden border-0 bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-lg">
+                <CardContent className="p-6 sm:p-7">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
+                        Commission Balance
+                    </p>
+                    {loading && !wallet
+                        ? <Skeleton className="mt-2 h-10 w-40 bg-white/20" />
+                        : <p className="mt-1 text-4xl font-black tracking-tight tabular-nums">{ghs(balance)}</p>}
+
+                    {/* total_withdrawn counts both payouts and transfers out — both
+                        leave this wallet. */}
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/70 tabular-nums">
+                        <span>Earned: {ghs(wallet?.total_earned ?? 0)}</span>
+                        <span>Paid out or transferred: {ghs(wallet?.total_withdrawn ?? 0)}</span>
+                    </div>
+
+                    <Button
+                        onClick={() => setTransferOpen(true)}
+                        disabled={loading || balance <= 0}
+                        className="mt-5 w-full bg-white text-violet-700 hover:bg-white/90 font-bold h-11 rounded-xl sm:w-auto sm:px-8"
+                    >
+                        <ArrowLeftRight className="w-4 h-4 mr-2" />
+                        Transfer to Main Wallet
+                    </Button>
+                    <p className="mt-2 text-xs text-white/70">
+                        {balance > 0
+                            ? 'Instant and free. To cash out instead, use Withdraw below.'
+                            : 'Nothing to transfer yet.'}
+                    </p>
+                </CardContent>
+            </Card>
 
             {/* Withdraw */}
             <Card>
@@ -396,7 +461,10 @@ export default function CommissionWalletPage() {
                     <CardTitle className="flex items-center gap-2 text-base">
                         <Coins className="w-4 h-4" /> Recent earnings
                     </CardTitle>
-                    <CardDescription>The last 20 commissions credited to this wallet.</CardDescription>
+                    <CardDescription>
+                        The last 20 commissions credited to this wallet. Transfers out appear on your
+                        main wallet statement.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {loading && transactions.length === 0 ? (
@@ -431,6 +499,76 @@ export default function CommissionWalletPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Transfer to main wallet */}
+            <Dialog open={transferOpen} onOpenChange={(open) => { if (!transferring) setTransferOpen(open) }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Transfer Commission</DialogTitle>
+                        <DialogDescription>
+                            Move your earnings into your main wallet, where you can spend them on data,
+                            airtime and bills.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Destination</Label>
+                            <div className="flex items-center gap-2 rounded-xl border bg-muted/40 px-3 py-2.5 text-sm font-semibold">
+                                <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                Main Wallet
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="commission-transfer-amount">Amount (GHS)</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => setTransferAmount(balance.toFixed(2))}
+                                    className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                                >
+                                    Available: {ghs(balance)}
+                                </button>
+                            </div>
+                            <Input
+                                id="commission-transfer-amount"
+                                type="number"
+                                inputMode="decimal"
+                                min="0.01"
+                                max={balance}
+                                step="0.01"
+                                placeholder="0.00"
+                                value={transferAmount}
+                                onChange={(e) => setTransferAmount(e.target.value)}
+                                disabled={transferring}
+                            />
+                            <p className="text-xs text-muted-foreground">Instant, no fee.</p>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setTransferOpen(false)}
+                            disabled={transferring}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={submitTransfer}
+                            disabled={transferring || !transferAmount || Number(transferAmount) <= 0}
+                        >
+                            {transferring ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Transferring…
+                                </>
+                            ) : 'Transfer'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
