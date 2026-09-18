@@ -93,6 +93,7 @@ export default function CommissionWalletPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [transferOpen, setTransferOpen] = useState(false)
+    const [withdrawOpen, setWithdrawOpen] = useState(false)
     const [transferAmount, setTransferAmount] = useState('')
     const [transferring, setTransferring] = useState(false)
 
@@ -174,6 +175,7 @@ export default function CommissionWalletPage() {
             }
             toast.success('Payout requested. An admin will review it.')
             setAmount('')
+            setWithdrawOpen(false)
             await load()
         } catch {
             toast.error('Something went wrong')
@@ -256,45 +258,76 @@ export default function CommissionWalletPage() {
                         <span>Paid out or transferred: {ghs(wallet?.total_withdrawn ?? 0)}</span>
                     </div>
 
-                    <Button
-                        onClick={() => setTransferOpen(true)}
-                        disabled={loading || balance <= 0}
-                        className="mt-5 w-full bg-white text-violet-700 hover:bg-white/90 font-bold h-11 rounded-xl sm:w-auto sm:px-8"
-                    >
-                        <ArrowLeftRight className="w-4 h-4 mr-2" />
-                        Transfer to Main Wallet
-                    </Button>
-                    <p className="mt-2 text-xs text-white/70">
+                    <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                        <Button
+                            onClick={() => setTransferOpen(true)}
+                            disabled={loading || balance <= 0}
+                            className="w-full bg-white text-violet-700 hover:bg-white/90 font-bold h-11 rounded-xl"
+                        >
+                            <ArrowLeftRight className="w-4 h-4 mr-2" />
+                            Transfer
+                        </Button>
+                        {/* Not disabled below the minimum: the dialog explains what
+                            the minimum is and how far off the balance is, which a
+                            dead button cannot. */}
+                        <Button
+                            onClick={() => setWithdrawOpen(true)}
+                            disabled={loading}
+                            className="w-full h-11 rounded-xl font-bold bg-white/15 text-white hover:bg-white/25 border border-white/25"
+                        >
+                            <Banknote className="w-4 h-4 mr-2" />
+                            Withdraw
+                        </Button>
+                    </div>
+                    <p className="mt-3 text-xs text-white/70">
                         {balance > 0
-                            ? 'Instant and free. To cash out instead, use Withdraw below.'
+                            ? 'Transfer is instant and free. Withdraw sends money out, and an admin reviews it.'
                             : 'Nothing to transfer yet.'}
                     </p>
                 </CardContent>
             </Card>
 
             {/* Withdraw */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                        <Banknote className="w-4 h-4" /> Withdraw
-                    </CardTitle>
-                    <CardDescription>
-                        Minimum {ghs(minAmount)}
-                        {config && (config.fee_percent > 0 || config.fee_flat > 0)
-                            ? ` · fee ${config.fee_percent}%${config.fee_flat ? ` + ${ghs(config.fee_flat)}` : ''}`
-                            : ' · no fee'}
-                        . An admin reviews every request.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <Dialog open={withdrawOpen} onOpenChange={(open) => { if (!submitting) setWithdrawOpen(open) }}>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Banknote className="w-4 h-4" /> Withdraw
+                        </DialogTitle>
+                        <DialogDescription>
+                            Minimum {ghs(minAmount)}
+                            {config && (config.fee_percent > 0 || config.fee_flat > 0)
+                                ? ` · fee ${config.fee_percent}%${config.fee_flat ? ` + ${ghs(config.fee_flat)}` : ''}`
+                                : ' · no fee'}
+                            . An admin reviews every request.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-1">
                     {openRequest ? (
                         <p className="text-sm text-muted-foreground">
                             You have a request awaiting approval. You can send another once it has been processed.
                         </p>
                     ) : balance < minAmount ? (
-                        <p className="text-sm text-muted-foreground">
-                            You need at least {ghs(minAmount)} to withdraw. Your balance is {ghs(balance)}.
-                        </p>
+                        <div className="space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                                You need at least {ghs(minAmount)} to withdraw. Your balance is {ghs(balance)}.
+                            </p>
+                            {balance > 0 && (
+                                <>
+                                    <p className="text-sm text-muted-foreground">
+                                        You can move it to your main wallet instead — any amount, instantly, with no fee.
+                                    </p>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full h-11 rounded-xl"
+                                        onClick={() => { setWithdrawOpen(false); setTransferOpen(true) }}
+                                    >
+                                        <ArrowLeftRight className="w-4 h-4 mr-2" />
+                                        Transfer {ghs(balance)} to Main Wallet
+                                    </Button>
+                                </>
+                            )}
+                        </div>
                     ) : (
                         <>
                             <div className="grid gap-3 sm:grid-cols-2">
@@ -386,8 +419,9 @@ export default function CommissionWalletPage() {
                             </p>
                         </>
                     )}
-                </CardContent>
-            </Card>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Payout history */}
             {withdrawals.length > 0 && (
