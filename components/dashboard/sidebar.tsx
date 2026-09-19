@@ -473,7 +473,7 @@ export function DashboardSidebar() {
                                                     : currentRole.badgeClass
                                             )}
                                         >
-                                            {currentRole.label}
+                                            {isSubAgent ? 'Sub-Agent' : currentRole.label}
                                         </span>
                                     </div>
                                 </div>
