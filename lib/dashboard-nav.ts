@@ -34,12 +34,15 @@ export const shopNavItems: NavItem[] = [
 /**
  * My Shop links for a sub-agent. A sub-agent's storefront lives under
  * /dashboard/sub/* (owner-approved withdrawals, upline-resolved pricing floor)
- * rather than the shop-owner model behind `shopNavItems`, so the hrefs differ —
- * there is no self-serve Setup or Withdraw page here; withdrawals are requested
- * from the sub's own dashboard home (/dashboard/sub).
+ * rather than the shop-owner model behind `shopNavItems`, so most hrefs differ.
+ * Shop Setup is the exception: the shared /dashboard/shop/setup editor serves
+ * subs too (the sub shop page already links to it). There is no Withdraw page
+ * here; withdrawals are requested from the sub's own dashboard home
+ * (/dashboard/sub).
  */
 export const subShopNavItems: NavItem[] = [
     { href: '/dashboard/sub/shop', label: 'Overview', icon: LayoutDashboard },
+    { href: '/dashboard/shop/setup', label: 'Shop Setup', icon: Settings },
     { href: '/dashboard/sub/pricing', label: 'Pricing', icon: Tag },
     { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
     { href: '/dashboard/sub/ussd', label: 'USSD Code', icon: Smartphone },
