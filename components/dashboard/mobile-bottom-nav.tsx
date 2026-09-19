@@ -96,6 +96,12 @@ const NAV_THEME: Record<UserRole, NavTheme> = {
     },
 }
 
+/** Sub-agents are not a role value, so their teal bar sits beside NAV_THEME. */
+const SUB_AGENT_NAV_THEME: NavTheme = {
+    gradient: 'from-teal-500 via-teal-600 to-teal-800',
+    ink: '#0F766E', onSurface: 'rgba(255,255,255,0.92)', darkSurface: true,
+}
+
 /** Depth shared by the pill and the hamburger: rim light plus a cast shadow. */
 const SURFACE_DEPTH =
     'ring-1 ring-inset ring-white/30 shadow-[0_18px_38px_-14px_rgba(0,0,0,0.55)]'
@@ -331,7 +337,9 @@ export function MobileBottomNav({ variant = 'dashboard' }: { variant?: NavVarian
         : isSubAdmin
             ? 'sub-admin'
             : ((dbUser?.role as UserRole) || 'customer')
-    const theme = NAV_THEME[role] ?? NAV_THEME['customer']
+    const theme = variant === 'dashboard-sub'
+        ? SUB_AGENT_NAV_THEME
+        : (NAV_THEME[role] ?? NAV_THEME['customer'])
     const surface = `relative overflow-hidden bg-gradient-to-br ${theme.gradient} ${SURFACE_DEPTH}`
 
     // The sub-menu is anchored to the active chip, so a route change always

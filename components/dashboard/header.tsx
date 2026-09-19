@@ -16,7 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { roleConfig } from '@/lib/roles'
+import { roleConfig, subAgentRoleConfig } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { Menu, X, Bell, User, Settings, LogOut } from 'lucide-react'
@@ -80,7 +80,9 @@ export function DashboardHeader() {
     }
 
     const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
-    const currentRole = roleConfig[userRole] || roleConfig['customer']
+    const currentRole = isSubAgent && !isAdmin && !isSubAdmin
+        ? subAgentRoleConfig
+        : (roleConfig[userRole] || roleConfig['customer'])
 
     return (
         <header className={cn(

@@ -49,7 +49,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { useAdminCounts } from '@/hooks/use-admin-counts'
-import { roleConfig } from '@/lib/roles'
+import { roleConfig, subAgentRoleConfig } from '@/lib/roles'
 import { shopNavItems, subShopNavItems } from '@/lib/dashboard-nav'
 import { BrandLogo } from '@/components/BrandLogo'
 
@@ -307,7 +307,9 @@ export function DashboardSidebar() {
 
     // Get role config
     const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
-    const currentRole = roleConfig[userRole] || roleConfig['customer']
+    const currentRole = isSubAgent && !isAdmin && !isSubAdmin
+        ? subAgentRoleConfig
+        : (roleConfig[userRole] || roleConfig['customer'])
     const RoleIcon = currentRole.icon
     // Roles whose sidebar chrome is a solid dark panel need light-on-dark
     // treatment for anything rendered inside it.
