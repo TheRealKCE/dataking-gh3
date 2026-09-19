@@ -85,7 +85,6 @@ const userNavItems = [
  * Wallet) is genuinely shared and needs no remap.
  */
 const SUB_AGENT_HREF_OVERRIDES: Record<string, string> = {
-    '/dashboard': '/dashboard/sub',
     '/dashboard/results-checker': '/dashboard/sub/rc',
     '/dashboard/afa-orders': '/dashboard/sub/afa',
     '/dashboard/utilities': '/dashboard/sub/utilities',
@@ -196,7 +195,7 @@ export function DashboardSidebar() {
     // My Shop accordion — auto-expands on any shop route (a sub-agent's shop
     // lives under /dashboard/sub/*, not /dashboard/shop/*)
     const isOnShopRoute = isSubAgent
-        ? subShopNavItems.some(item => pathname?.startsWith(item.href))
+        ? subShopNavItems.some(item => item.href === '/dashboard/sub' ? pathname === item.href : pathname?.startsWith(item.href))
         : (pathname?.startsWith('/dashboard/shop') ?? false)
     const [shopGroupOpen, setShopGroupOpen] = useState(isOnShopRoute)
     useEffect(() => {
@@ -342,7 +341,7 @@ export function DashboardSidebar() {
             >
                 {/* Logo Header */}
                 <div className="h-20 flex items-center justify-between px-6 border-b border-border/50">
-                    <Link href={isSubAgent ? '/dashboard/sub' : '/dashboard'}>
+                    <Link href="/dashboard">
                         <BrandLogo collapsed={isCollapsed} lightText={dbUser?.role === 'dealer'} />
                     </Link>
                     <Button

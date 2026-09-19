@@ -80,7 +80,14 @@ const orderStatusConfig: Record<string, { label: string; color: string }> = {
 }
 
 export default function ShopOverviewPage() {
-    const { dbUser, isAdmin, isSubAdmin } = useAuth()
+    const { dbUser, isAdmin, isSubAdmin, isSubAgent, subAgentRecruitBlocked } = useAuth()
+    // A sub-agent sees this same overview (reached via /dashboard/sub/shop), but
+    // pricing, USSD, sub-agents and above all withdrawals have sub-agent
+    // versions: /api/shop/withdraw pays out directly, while a sub's withdrawal
+    // must go through their Lead's approval (/api/dashboard/sub/withdraw).
+    const pricingHref = isSubAgent ? '/dashboard/sub/pricing' : '/dashboard/shop/pricing'
+    const withdrawHref = isSubAgent ? '/dashboard/sub' : '/dashboard/shop/withdraw'
+    const ussdHref = isSubAgent ? '/dashboard/sub/ussd' : '/dashboard/shop/ussd'
     const router = useRouter()
     const [shop, setShop] = useState<ShopProfile | null>(null)
     const [wallet, setWallet] = useState<ShopWallet | null>(null)
@@ -413,8 +420,8 @@ export default function ShopOverviewPage() {
                             <Link href="/dashboard/shop/setup"><Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl"><Settings className="w-4 h-4 text-blue-600" /> Edit</Button></Link>
                             <div className={cn("flex items-center gap-2", isPending && "opacity-40 pointer-events-none")}>
                                 <div className="h-5 w-px bg-gray-300 dark:bg-gray-700 mx-1" />
-                                <Link href="/dashboard/shop/pricing"><Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl"><Tag className="w-4 h-4 text-purple-600" /> Pricing</Button></Link>
-                                <Link href="/dashboard/shop/withdraw"><Button size="sm" className="h-9 gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">Withdraw</Button></Link>
+                                <Link href={pricingHref}><Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl"><Tag className="w-4 h-4 text-purple-600" /> Pricing</Button></Link>
+                                <Link href={withdrawHref}><Button size="sm" className="h-9 gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">Withdraw</Button></Link>
                             </div>
                         </div>
                     </div>
@@ -456,7 +463,7 @@ export default function ShopOverviewPage() {
                                         Sell to customers with no internet.
                                     </p>
                                 </div>
-                                <Link href="/dashboard/shop/ussd" className="w-full sm:w-auto">
+                                <Link href={ussdHref} className="w-full sm:w-auto">
                                     <Button className="w-full sm:w-auto h-10 px-5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-xl font-black">
                                         Activate Now
                                     </Button>
@@ -510,7 +517,7 @@ export default function ShopOverviewPage() {
                             <p className="font-bold text-sm text-emerald-900 dark:text-emerald-200">One more step — set your prices</p>
                             <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">Your shop profile is approved. Configure your selling prices to make your storefront live and start earning.</p>
                         </div>
-                        <Link href="/dashboard/shop/pricing" className="shrink-0">
+                        <Link href={pricingHref} className="shrink-0">
                             <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl gap-1.5">
                                 <Tag className="w-3.5 h-3.5" /> Set Prices
                             </Button>
@@ -520,7 +527,9 @@ export default function ShopOverviewPage() {
             })()}
 
             {/* --- RECRUIT SUB-AGENTS --- */}
-            {shop.approval_status === 'approved' && <SubAgentInviteCard />}
+            {shop.approval_status === 'approved' && !(isSubAgent && subAgentRecruitBlocked) && (
+                <SubAgentInviteCard manageHref={isSubAgent ? '/dashboard/sub/sub-agents' : undefined} />
+            )}
 
             {/* --- SMART STATS --- */}
             <div className={cn("space-y-3", isPending && "opacity-50 pointer-events-none")}>
@@ -565,7 +574,7 @@ export default function ShopOverviewPage() {
                          <p className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 to-emerald-500">{formatCurrency(wallet?.balance || 0)}</p>
                          <div className="mt-8">
                              <Button asChild className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl h-12 shadow-[0_0_20px_rgba(16,185,129,0.3)] border-0">
-                                 <Link href="/dashboard/shop/withdraw">Withdraw Earnings <ArrowRight className="w-4 h-4 ml-2" /></Link>
+                                 <Link href={withdrawHref}>Withdraw Earnings <ArrowRight className="w-4 h-4 ml-2" /></Link>
                              </Button>
                          </div>
                     </div>
@@ -611,7 +620,7 @@ export default function ShopOverviewPage() {
 
             <div className="md:hidden fixed bottom-14 left-0 right-0 bg-white/90 backdrop-blur-xl border-t p-3 flex gap-2 z-40">
                  <Link href="/dashboard/shop/setup" className="flex-1"><Button variant="secondary" className="w-full rounded-xl font-bold h-11"><Settings className="w-4 h-4 mr-2" /> Edit</Button></Link>
-                 <Link href="/dashboard/shop/pricing" className="flex-1"><Button variant="secondary" className="w-full rounded-xl font-bold h-11"><Tag className="w-4 h-4 mr-2" /> Prices</Button></Link>
+                 <Link href={pricingHref} className="flex-1"><Button variant="secondary" className="w-full rounded-xl font-bold h-11"><Tag className="w-4 h-4 mr-2" /> Prices</Button></Link>
             </div>
             
             <style jsx global>{`

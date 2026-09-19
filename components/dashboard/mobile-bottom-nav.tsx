@@ -230,9 +230,9 @@ const NAV_VARIANTS = {
     // Earn, Transactions, Complaints, Profile, Download App, Developer API,
     // Commission Wallet) is genuinely shared with the customer nav.
     'dashboard-sub': {
-        root: '/dashboard/sub',
+        root: '/dashboard',
         tabs: [
-            { id: 'home', label: 'Home', href: '/dashboard/sub', icon: LayoutGrid },
+            { id: 'home', label: 'Home', href: '/dashboard', icon: LayoutGrid },
             { id: 'wallet', label: 'Wallet', href: '/dashboard/wallet', icon: Wallet },
             { id: 'data', label: 'Data', href: '/dashboard/data-packages', icon: Package },
             { id: 'orders', label: 'Orders', href: '/dashboard/sub/orders', icon: ClipboardList },

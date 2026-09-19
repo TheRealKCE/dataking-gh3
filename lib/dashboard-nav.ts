@@ -43,6 +43,7 @@ export const shopNavItems: NavItem[] = [
 export const subShopNavItems: NavItem[] = [
     { href: '/dashboard/sub/shop', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/shop/setup', label: 'Shop Setup', icon: Settings },
+    { href: '/dashboard/sub', label: 'Earnings & Withdraw', icon: Banknote },
     { href: '/dashboard/sub/pricing', label: 'Pricing', icon: Tag },
     { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
     { href: '/dashboard/sub/ussd', label: 'USSD Code', icon: Smartphone },
