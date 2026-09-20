@@ -568,6 +568,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, gateway: 'moolre', reference: shopRef, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
     } catch (error) {
         console.error('[Shop Initialize] Error:', error)
+        // Order metadata lives in Redis, so an exhausted quota or an outage stops
+        // checkout. Say so plainly (and 503, so it reads as retryable) instead of
+        // a generic "Internal server error" that gives the shopper nothing to act on.
+        const detail = error instanceof Error ? `${error.name} ${error.message}` : String(error)
+        if (/upstash|max requests limit|redis/i.test(detail)) {
+            return NextResponse.json(
+                { error: 'Payments are temporarily unavailable. Please try again in a few minutes.' },
+                { status: 503 }
+            )
+        }
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
