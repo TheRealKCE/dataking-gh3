@@ -188,7 +188,8 @@ export async function POST(request: Request) {
                     .eq('id', order.shop_order_id)
             }
 
-            let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean }
+            // webhookRef is set by the Dakazina path only (see lib/fulfillment-service).
+            let result: { success: boolean; reference?: string; transactionId?: string; webhookRef?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean }
             if (isCodeCraftEnabled) {
                 result = await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
             } else if (isKingFlexyEnabled) {
@@ -245,6 +246,10 @@ export async function POST(request: Request) {
                     else if (isHendyLinksEnabled) refUpdate.hendylinks_reference = result.transactionId
                     else refUpdate.dakazina_reference = result.transactionId
                 }
+                // Dakazina may return no transaction_code at all, and its webhook matches
+                // on order_code — so stamp that even when transactionId is absent, and
+                // prefer it when both exist. Only the Dakazina path ever sets webhookRef.
+                if (result.webhookRef) refUpdate.dakazina_reference = result.webhookRef
                 if (Object.keys(refUpdate).length > 0) {
                     await supabaseAdmin.from('orders').update(refUpdate).eq('id', order.id)
                 }

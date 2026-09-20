@@ -123,7 +123,8 @@ export async function triggerFulfillment(orderId: string, network: string, user:
         }
 
         // ── Execute fulfillment ────────────────────────────────────────────
-        let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any }
+        // webhookRef is set by the Dakazina path only (see lib/fulfillment-service).
+        let result: { success: boolean; reference?: string; transactionId?: string; webhookRef?: string; error?: string; apiResponse?: any }
         try {
             if (isCodeCraftEnabled) {
                 const { fulfillOrder: ccFulfill } = await import('@/lib/codecraft-service')
@@ -179,8 +180,11 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             if (isHendyLinksEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.hendylinks_reference = result.transactionId || result.reference
             }
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.transactionId || result.reference)) {
-                ordersUpdate.dakazina_reference = result.transactionId || result.reference
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.webhookRef || result.transactionId || result.reference)) {
+                // webhookRef FIRST: it is the only identifier Dakazina echoes back on an
+                // event, and their status endpoint 404s, so the webhook is the sole way
+                // one of these orders can learn it was delivered.
+                ordersUpdate.dakazina_reference = result.webhookRef || result.transactionId || result.reference
             }
 
             // The supplier has already been called and paid. Shed the optional columns

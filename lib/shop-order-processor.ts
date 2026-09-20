@@ -676,7 +676,8 @@ async function triggerShopFulfillment(
         console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
         // ── 6. Execute fulfillment (dedicated try/catch — ensures alert fires on any exception) ──
-        let result: { success: boolean; reference?: string; transactionId?: string; error?: string; isRateLimited?: boolean }
+        // webhookRef is set by the Dakazina path only (see lib/fulfillment-service).
+        let result: { success: boolean; reference?: string; transactionId?: string; webhookRef?: string; error?: string; isRateLimited?: boolean }
 
         try {
             if (isCodeCraftEnabled) {
@@ -783,16 +784,19 @@ async function triggerShopFulfillment(
                 '[Shop Order Processor]'
             )
 
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.transactionId || result.reference)) {
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.webhookRef || result.transactionId || result.reference)) {
+                // webhookRef FIRST — see the matching note in order-fulfillment-dispatcher.
+                const dakazinaRef = result.webhookRef || result.transactionId || result.reference
+
                 const { error: refError } = await db
                     .from('orders')
-                    .update({ dakazina_reference: result.transactionId || result.reference })
+                    .update({ dakazina_reference: dakazinaRef })
                     .eq('shop_order_id', orderId)
                 if (refError) console.error(`[ShopOrderProcessor] Failed to stamp dakazina_reference:`, refError.message)
 
                 await db
                     .from('shop_orders')
-                    .update({ dakazina_reference: result.transactionId || result.reference })
+                    .update({ dakazina_reference: dakazinaRef })
                     .eq('id', orderId)
             }
 

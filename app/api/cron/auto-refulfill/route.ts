@@ -150,7 +150,8 @@ export async function GET(request: NextRequest) {
                 .eq('id', order.shop_order_id)
         }
 
-        const result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean } = isCodeCraftEnabled
+        // webhookRef is set by the Dakazina path only (see lib/fulfillment-service).
+        const result: { success: boolean; reference?: string; transactionId?: string; webhookRef?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean } = isCodeCraftEnabled
             ? await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
             : isKingFlexyEnabled
                 ? await kfFulfillOrder(order.network, order.phone_number, order.size, order.id)
@@ -202,6 +203,8 @@ export async function GET(request: NextRequest) {
                 else if (isHendyLinksEnabled) refUpdate.hendylinks_reference = result.transactionId
                 else refUpdate.dakazina_reference = result.transactionId
             }
+            // See the matching note in app/api/admin/fulfillment/refulfill.
+            if (result.webhookRef) refUpdate.dakazina_reference = result.webhookRef
             if (Object.keys(refUpdate).length > 0) {
                 await supabaseAdmin.from('orders').update(refUpdate).eq('id', order.id)
             }
