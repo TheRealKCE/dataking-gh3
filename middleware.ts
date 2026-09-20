@@ -528,8 +528,9 @@ export async function middleware(request: NextRequest) {
             limiter = rateLimiters?.supportChat
             identifier = ip
         } else if (pathname.startsWith('/api/cron')) {
-            limiter = rateLimiters?.cron
-            identifier = ip
+            // Deliberately unlimited: every cron route authenticates with CRON_SECRET (32+ chars)
+            // itself, and cron-job.org's frequent schedule was burning Upstash's monthly quota.
+            limiter = undefined
         } else if (pathname.startsWith('/api/user')) {
             limiter = rateLimiters?.user
             identifier = authUser?.id ?? ip
