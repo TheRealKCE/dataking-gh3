@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
-import { Redis } from '@upstash/redis'
-
-const redis = Redis.fromEnv()
+import { getShopMeta } from '@/lib/shop-meta-store'
 
 export async function POST(request: NextRequest) {
     try {
@@ -34,20 +32,13 @@ export async function POST(request: NextRequest) {
             const paidAmountKobo = Math.round(parseFloat(value) * 100)
 
             // o. SHOP ORDERS
-            // Moolre doesn't send metadata back, so we fetch it from Redis
+            // Moolre doesn't send metadata back, so we fetch it from Redis / the database
             if (externalref.startsWith('SHOP-')) {
-                const metadataStr = await redis.get<string>(`shop:meta:${externalref}`)
+                const metadata = await getShopMeta<any>(externalref)
 
-                if (!metadataStr) {
-                    console.error(`[MoolreWebhook] Metadata not found in Redis for Shop Order: ${externalref}`)
+                if (!metadata) {
+                    console.error(`[MoolreWebhook] Metadata not found for Shop Order: ${externalref}`)
                     return NextResponse.json({ received: true })
-                }
-
-                let metadata
-                try {
-                    metadata = typeof metadataStr === 'string' ? JSON.parse(metadataStr) : metadataStr
-                } catch (e) {
-                    metadata = metadataStr
                 }
 
                 const { processShopOrder } = await import('@/lib/shop-order-processor')

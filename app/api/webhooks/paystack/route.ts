@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
-import { Redis } from '@upstash/redis'
+import { getShopMeta } from '@/lib/shop-meta-store'
 import { clearPaystackMomoPending } from '@/lib/paystack-momo-checkout'
 import { clearPaystackMomoPromptCount } from '@/lib/hubtel-prompt-limit'
 import crypto from 'crypto'
-
-const redis = Redis.fromEnv()
 
 export async function POST(request: NextRequest) {
     try {
@@ -148,8 +146,7 @@ export async function POST(request: NextRequest) {
                 // exactly as /api/shop/verify and the PaySwitch sweep already do.
                 let shopMetadata = metadata
                 if (!shopMetadata?.shop_id) {
-                    const raw = await redis.get<any>(`shop:meta:${reference}`)
-                    shopMetadata = typeof raw === 'string' ? JSON.parse(raw) : raw
+                    shopMetadata = await getShopMeta<any>(reference)
                 }
 
                 if (!shopMetadata?.shop_id) {

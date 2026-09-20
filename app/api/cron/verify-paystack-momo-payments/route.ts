@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
+import { getShopMeta } from '@/lib/shop-meta-store'
 import { verifyTransaction } from '@/lib/paystack-momo-service'
 import { logStatusCheck } from '@/lib/hubtel-payment-log'
 import { clearPaystackMomoPromptCount } from '@/lib/hubtel-prompt-limit'
@@ -486,8 +487,7 @@ async function settleGuestOrder(
     paidAmountKobo: number
 ): Promise<void> {
     if (kind === 'shop') {
-        const raw = await redis.get<any>(`shop:meta:${reference}`)
-        const metadata = typeof raw === 'string' ? JSON.parse(raw) : raw
+        const metadata = await getShopMeta<any>(reference)
         if (!metadata?.shop_id) {
             console.error('[CronPaystackMomo] SHOP- paid but metadata is gone:', reference)
             return

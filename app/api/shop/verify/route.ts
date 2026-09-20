@@ -1,12 +1,10 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
-import { Redis } from '@upstash/redis'
+import { getShopMeta } from '@/lib/shop-meta-store'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 import { verifyTransaction } from '@/lib/paystack-momo-service'
 import { clearPaystackMomoPending } from '@/lib/paystack-momo-checkout'
-
-const redis = Redis.fromEnv()
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
@@ -26,22 +24,15 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // The Redis read moves ABOVE the status check, because the metadata is what
+        // The metadata read moves ABOVE the status check, because the metadata is what
         // names the gateway that collected. Asking Moolre about a Paystack reference
         // returns "unknown" forever, and the storefront's 40x3s poll then tells a
         // guest to wait on money that is already in.
-        const metadataStr = await redis.get<string>(`shop:meta:${ref}`)
-        if (!metadataStr) {
-            console.error('[Shop Verify] Metadata not found in Redis for:', ref)
+        const metadata = await getShopMeta<any>(ref)
+        if (!metadata) {
+            console.error('[Shop Verify] Metadata not found for:', ref)
             if (isInline) return NextResponse.json({ success: false, error: 'payment_error' }, { status: 400 })
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
-        }
-
-        let metadata
-        try {
-            metadata = typeof metadataStr === 'string' ? JSON.parse(metadataStr) : metadataStr
-        } catch (e) {
-            metadata = metadataStr
         }
 
         if (metadata?.provider === 'paystack_momo') {

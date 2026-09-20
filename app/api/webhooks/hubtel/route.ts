@@ -3,9 +3,7 @@ import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSA
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { logCallback } from '@/lib/hubtel-payment-log'
-import { Redis } from '@upstash/redis'
-
-const redis = Redis.fromEnv()
+import { getShopMeta } from '@/lib/shop-meta-store'
 
 
 /**
@@ -71,26 +69,20 @@ export async function POST(request: NextRequest) {
 
         // ── SHOP ORDERS ──────────────────────────────────────────────────────────
         if (ClientReference.startsWith('SHOP-')) {
-            const metadataStr = await redis.get<string>(`shop:meta:${ClientReference}`)
+            const metadata = await getShopMeta<any>(ClientReference)
 
-            if (!metadataStr) {
-                console.error(`[HubtelWebhook] Metadata not found in Redis for Shop Order: ${ClientReference}`)
-                // Paid, but the cart expired out of Redis — the customer is out of pocket
-                // with no order. Flag it rather than letting it pass as a success.
+            if (!metadata) {
+                console.error(`[HubtelWebhook] Metadata not found for Shop Order: ${ClientReference}`)
+                // Paid, but the cart is in neither Redis nor the database — the customer
+                // is out of pocket with no order. Flag it rather than letting it pass
+                // as a success.
                 await logCallback({
                     clientReference: ClientReference,
                     responseCode: event.ResponseCode,
                     status: 'failed',
-                    message: 'Paid but shop order metadata had expired from Redis — order not created.',
+                    message: 'Paid but shop order metadata could not be found — order not created.',
                 })
                 return NextResponse.json({ received: true })
-            }
-
-            let metadata
-            try {
-                metadata = typeof metadataStr === 'string' ? JSON.parse(metadataStr) : metadataStr
-            } catch (e) {
-                metadata = metadataStr
             }
 
             const { processShopOrder } = await import('@/lib/shop-order-processor')

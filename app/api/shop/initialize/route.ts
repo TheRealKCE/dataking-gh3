@@ -21,9 +21,12 @@ import {
     clearPaystackMomoPending,
 } from '@/lib/paystack-momo-checkout'
 import { checkMtnRegistration, registrationRequiredBody } from '@/lib/mtn-registration-gate'
+import { saveShopMeta, getShopMeta, deleteShopMeta } from '@/lib/shop-meta-store'
 
 // Redis client for distributed idempotency across all serverless instances.
 // In-memory Maps were removed — they reset on every Vercel cold start.
+// Order metadata no longer goes through this directly: see lib/shop-meta-store.ts,
+// which keeps a database copy so a Redis outage cannot stop checkout.
 const redis = Redis.fromEnv()
 
 export async function POST(request: NextRequest) {
@@ -365,14 +368,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: promptLimit.error }, { status: 429 })
             }
 
-            // Metadata must land in Redis BEFORE the prompt — the callback reads it
+            // Metadata must be stored BEFORE the prompt — the callback reads it
             // and a fast approval can otherwise beat the write.
             if (!existingRef) {
-                await redis.set(
-                    `shop:meta:${shopRef}`,
-                    JSON.stringify({ ...fullMetadata, payer_msisdn: toHubtelMsisdn(payerClean) }),
-                    { ex: 86400 }
-                )
+                await saveShopMeta(shopRef, { ...fullMetadata, payer_msisdn: toHubtelMsisdn(payerClean) })
             }
 
             const hubtelResponse = await hubtelInitiatePayment({
@@ -413,8 +412,7 @@ export async function POST(request: NextRequest) {
             // An OTP finishes the charge that already exists. No new order, no second
             // Redis write, and above all no second charge.
             if (otpCode && existingRef) {
-                const rawMeta = await redis.get<any>(`shop:meta:${existingRef}`)
-                const meta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta
+                const meta = await getShopMeta<any>(existingRef)
                 // A guest has no account to bind this to and the references are
                 // guessable, so ownership is proved by the payer's own number. Without
                 // it anyone who guesses a reference can burn a stranger's OTP attempts.
@@ -428,14 +426,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json(otpResult.body, otpResult.ok ? undefined : { status: otpResult.httpStatus })
             }
 
-            // Metadata must land in Redis BEFORE the prompt — the callback reads it
+            // Metadata must be stored BEFORE the prompt — the callback reads it
             // and a fast approval can otherwise beat the write.
             if (!existingRef) {
-                await redis.set(
-                    `shop:meta:${shopRef}`,
-                    JSON.stringify({ ...fullMetadata, payer_msisdn: payerClean }),
-                    { ex: 86400 }
-                )
+                await saveShopMeta(shopRef, { ...fullMetadata, payer_msisdn: payerClean })
                 // There is no wallet_payments row for a guest order, so this marker is
                 // the only thing the reconciliation sweep can find it by.
                 await markPaystackMomoPending(shopRef, { kind: 'shop', slug: shopSlug })
@@ -457,7 +451,7 @@ export async function POST(request: NextRequest) {
 
             if (!charge.ok) {
                 if (charge.safeToMarkFailed && !existingRef) {
-                    await redis.del(`shop:meta:${shopRef}`)
+                    await deleteShopMeta(shopRef)
                     await clearPaystackMomoPending(shopRef)
                 }
                 return NextResponse.json(charge.body, { status: charge.httpStatus })
@@ -478,11 +472,7 @@ export async function POST(request: NextRequest) {
             // metadata and resolves the reference from the id, and a fast approval
             // can otherwise beat either write.
             if (!existingRef) {
-                await redis.set(
-                    `shop:meta:${shopRef}`,
-                    JSON.stringify({ ...fullMetadata, payer_msisdn: toPayswitchMsisdn(payerClean) }),
-                    { ex: 86400 }
-                )
+                await saveShopMeta(shopRef, { ...fullMetadata, payer_msisdn: toPayswitchMsisdn(payerClean) })
             }
             await mapPayswitchTransaction(transactionId, shopRef)
 
@@ -518,9 +508,15 @@ export async function POST(request: NextRequest) {
 
         const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${payerClean}-${totalAmount}`
         if (!otpCode) {
-            const cachedIdem = await redis.get<{ ref: string }>(idemKey)
-            if (cachedIdem) {
-                return NextResponse.json({ success: true, gateway: 'moolre', reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
+            // A 60s duplicate-click guard, nothing more — it must never be the
+            // reason a payment cannot start, so a Redis failure just skips it.
+            try {
+                const cachedIdem = await redis.get<{ ref: string }>(idemKey)
+                if (cachedIdem) {
+                    return NextResponse.json({ success: true, gateway: 'moolre', reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
+                }
+            } catch (e) {
+                console.error('[ShopInit] duplicate-click guard unavailable, continuing:', e)
             }
         }
 
@@ -548,7 +544,7 @@ export async function POST(request: NextRequest) {
 
         if (moolreResponse.status === '200_OTP_REQ') {
             if (!existingRef) {
-                await redis.set(`shop:meta:${shopRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
+                await saveShopMeta(shopRef, fullMetadata)
             }
             return NextResponse.json({
                 success: true,
@@ -560,10 +556,14 @@ export async function POST(request: NextRequest) {
         }
 
         if (!existingRef) {
-            await redis.set(`shop:meta:${shopRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
+            await saveShopMeta(shopRef, fullMetadata)
         }
 
-        await redis.set(idemKey, { ref: shopRef }, { ex: 60 })
+        try {
+            await redis.set(idemKey, { ref: shopRef }, { ex: 60 })
+        } catch (e) {
+            console.error('[ShopInit] could not record duplicate-click guard:', e)
+        }
 
         return NextResponse.json({ success: true, gateway: 'moolre', reference: shopRef, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
     } catch (error) {
