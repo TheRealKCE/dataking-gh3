@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/hubtel/interact",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/sync-netpulse-status",

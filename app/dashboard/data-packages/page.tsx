@@ -250,7 +250,7 @@ export default function DataPackagesPage() {
         if (!pollingRef) return
 
         let elapsed = 0
-        const POLL_MS = 3000
+        const POLL_MS = 5000
         const TIMEOUT_MS = 180000 // 3 minutes
 
         const interval = setInterval(async () => {
