@@ -32,7 +32,7 @@ import {
 
 const BRAND_BLUE = '#2563eb'
 const BRAND_PURPLE = '#7c3aed'
-const SLIDE_COUNT = 5
+const SLIDE_COUNT = 4
 const AUTO_ADVANCE_MS = 10000
 
 // ── Dot indicators ───────────────────────────────────────────────────────────────
@@ -293,35 +293,15 @@ export function HeroCarousel({ guestUrl, isValidGuestUrl }: { guestUrl: string; 
                         <HeroBtn href="/auth/signup" variant="primary"><Code2 className="w-4 h-4" /> Get API Access</HeroBtn>
                         <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} />
                     </div>
-
-                    {/* Slide 5 — Marketplace */}
-                    <div className={cn(cardBase, slideState(4), 'hero-slide-5')}>
-                        <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#059669' }}>ARHMS Marketplace</p>
-                        <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
-                            Buy &amp; Sell <span style={{ color: '#059669' }}>Locally</span>
-                        </h2>
-                        <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/60">
-                            Discover great deals from verified sellers across Ghana — or list your own items for free in minutes.
-                        </p>
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {['Verified Sellers', 'Local Deals', 'Post Free Ads', 'Any Category', 'Chat Direct'].map(f => (
-                                <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/85" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)' }}>
-                                    <CheckCircle2 className="w-3 h-3" style={{ color: '#059669' }} />{f}
-                                </span>
-                            ))}
-                        </div>
-                        <HeroBtn href={process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'} variant="primary"><Store className="w-4 h-4" /> Explore Marketplace</HeroBtn>
-                        <SlideDots current={4} total={SLIDE_COUNT} onDotClick={setSlide} />
-                    </div>
                 </div>
 
                 {/* Light-mode surface separator */}
                 <div className="hero-separator block dark:hidden w-full h-px" />
 
                 {/* Light-mode mirror reflection — tablet and up. On a phone it sits
-                    below the fold and was five more animated layers to composite. */}
+                    below the fold and was four more animated layers to composite. */}
                 <div className="hero-reflect-wrap hidden sm:block sm:dark:hidden w-full relative pointer-events-none">
-                    {[0, 1, 2, 3, 4].map(i => (
+                    {[0, 1, 2, 3].map(i => (
                         <div key={i} className={cn('hero-reflect', `hero-reflect-${i + 1}`, slideState(i))} />
                     ))}
                 </div>

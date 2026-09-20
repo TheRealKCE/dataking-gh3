@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // are dependencies of dozens of page effects; handing them a fresh object
     // for the same user and the same token made every one of those pages
     // refetch. The user object is replaced only when the account changes or its
-    // metadata does; the session only when the token does (marketplace pages
-    // send that token, so a refresh must still reach them).
+    // metadata does; the session only when the token does (client code that
+    // sends that token to an API must still see a refresh).
     const applySession = useCallback((next: Session) => {
         userIdRef.current = next.user.id
         setSession(prev => (prev?.access_token === next.access_token ? prev : next))

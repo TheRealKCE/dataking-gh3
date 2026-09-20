@@ -49,7 +49,6 @@ export default function AdminSettingsPage() {
     const [smsProvider, setSmsProvider] = useState<'moolre' | 'hubtel'>('moolre')
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>('moolre')
-    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<PaymentProvider>('moolre')
     // Seeded with the USSD scope's own fallback, not Moolre — Moolre has no USSD
     // branch, so showing it here would offer a gateway that cannot take the money.
     const [ussdPaymentProvider, setUssdPaymentProvider] = useState<PaymentProvider>('paystack_momo')
@@ -88,7 +87,6 @@ export default function AdminSettingsPage() {
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
     const [hideStandardMtn, setHideStandardMtn] = useState(false)
     const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
-    const [storefrontMarketplaceAd, setStorefrontMarketplaceAd] = useState(true)
 
     useEffect(() => {
         fetchSettings()
@@ -145,7 +143,6 @@ export default function AdminSettingsPage() {
             setWebPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_web, 'web'))
             setShopPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_shop, 'shop'))
             setUssdPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_ussd, 'ussd'))
-            setClassifiedsPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_classifieds, 'classifieds'))
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
             setRcWalletPaymentEnabled(settingsMap.rc_wallet_payment_enabled !== 'false')
 
@@ -174,7 +171,6 @@ export default function AdminSettingsPage() {
             setHideExpressMtn(settingsMap.express_mtn_hidden === 'true')
             setHideStandardMtn(settingsMap.standard_mtn_hidden === 'true')
             setResultsCheckerOnly(settingsMap.results_checker_only_mode === 'true')
-            setStorefrontMarketplaceAd(settingsMap.storefront_marketplace_ad_enabled !== 'false')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -219,7 +215,6 @@ export default function AdminSettingsPage() {
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
                 { key: 'active_payment_provider_ussd', value: ussdPaymentProvider },
-                { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
                 { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
@@ -238,7 +233,6 @@ export default function AdminSettingsPage() {
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
                 { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
-                { key: 'storefront_marketplace_ad_enabled', value: String(storefrontMarketplaceAd) },
                 // USSD short codes
                 { key: 'ussd_enabled', value: String(ussdEnabled) },
                 { key: 'ussd_dial_code', value: ussdDialCode },
@@ -247,13 +241,6 @@ export default function AdminSettingsPage() {
                 { key: 'ussd_activation_price_dealer', value: ussdActivationPriceDealer },
                 { key: 'ussd_activation_price_sub', value: ussdActivationPriceSub },
                 { key: 'storefront_ussd_card_enabled', value: String(storefrontUssdCard) },
-                // Classifieds boost fees
-                { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
-                { key: 'classifieds_boost_fee_14d', value: settings['classifieds_boost_fee_14d'] || '' },
-                { key: 'classifieds_boost_fee_21d', value: settings['classifieds_boost_fee_21d'] || '' },
-                { key: 'classifieds_boost_fee_30d', value: settings['classifieds_boost_fee_30d'] || '' },
-                { key: 'classifieds_boost_fee_60d', value: settings['classifieds_boost_fee_60d'] || '' },
-                { key: 'classifieds_boost_fee_90d', value: settings['classifieds_boost_fee_90d'] || '' },
             ]
 
             const response = await fetch('/api/admin-settings', {
@@ -297,7 +284,6 @@ export default function AdminSettingsPage() {
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="fees">Fees &amp; Pricing</TabsTrigger>
-                    <TabsTrigger value="classifieds">Classifieds</TabsTrigger>
                     <TabsTrigger value="fulfillment">Fulfillment</TabsTrigger>
                     <TabsTrigger value="referrals">Referrals</TabsTrigger>
                     <TabsTrigger value="access">Page Access</TabsTrigger>
@@ -729,107 +715,6 @@ export default function AdminSettingsPage() {
 
                 </TabsContent>
 
-                {/* ── Classifieds Tab ── */}
-                <TabsContent value="classifieds" className="space-y-4 mt-4">
-
-                    {/* Boost Payment Gateway */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Boost Payment Gateway</CardTitle>
-                            <CardDescription>Select the payment provider sellers use when paying to boost a listing. Changes take effect immediately — sellers will be charged directly (no wallet needed).</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center justify-between p-4 border rounded-lg">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base">Classifieds Boost Payments</Label>
-                                    <p className="text-sm text-muted-foreground">Gateway used when sellers pay to boost their listings</p>
-                                </div>
-                                {/* Hubtel is absent by design: the boost flow has no Hubtel
-                                    branch, so selecting it here used to silently fall back to
-                                    Moolre. SCOPE_PROVIDERS is what keeps that honest. */}
-                                <div className="flex rounded-lg border overflow-hidden">
-                                    {SCOPE_PROVIDERS.classifieds.map((id, index) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            onClick={() => setClassifiedsPaymentProvider(id)}
-                                            className={cn(
-                                                'px-4 py-2 text-sm font-medium transition-colors',
-                                                index > 0 && 'border-l',
-                                                classifiedsPaymentProvider === id
-                                                    ? 'bg-primary text-primary-foreground'
-                                                    : 'bg-background hover:bg-muted text-foreground'
-                                            )}
-                                        >
-                                            {PROVIDER_LABEL[id]}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Boost Fees */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Promotion Boost Fees</CardTitle>
-                            <CardDescription>Set the GHS price sellers pay to boost a listing to the top of the marketplace. Changes take effect immediately after saving.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {[
-                                { key: 'classifieds_boost_fee_7d',  label: '1 Week (7 days)' },
-                                { key: 'classifieds_boost_fee_14d', label: '2 Weeks (14 days)' },
-                                { key: 'classifieds_boost_fee_21d', label: '3 Weeks (21 days)' },
-                                { key: 'classifieds_boost_fee_30d', label: '1 Month (30 days)' },
-                                { key: 'classifieds_boost_fee_60d', label: '2 Months (60 days)' },
-                                { key: 'classifieds_boost_fee_90d', label: '3 Months (90 days)' },
-                            ].map(({ key, label }) => (
-                                <div key={key} className="space-y-1.5 p-4 border rounded-lg">
-                                    <Label className="font-semibold">{label}</Label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">GHS</span>
-                                        <Input
-                                            type="number"
-                                            value={settings[key] || ''}
-                                            onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
-                                            step="0.01"
-                                            min="0"
-                                            placeholder="0.00"
-                                            className="pl-12"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    {/* Seller Verification */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Seller Verification</CardTitle>
-                            <CardDescription>Review and approve seller identity verification requests submitted through the marketplace.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
-                                <div className="space-y-1">
-                                    <p className="font-semibold text-sm">Manage Verification Queue</p>
-                                    <p className="text-xs text-muted-foreground">Approve or reject seller verification requests, view applicant details, and add rejection notes.</p>
-                                </div>
-                                <a
-                                    href="/classifieds/admin/sellers"
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap ml-4 flex-shrink-0"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
-                                    Open Verification Queue
-                                </a>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-3">
-                                You can also access this from the sidebar: <strong>Classifieds → Seller Verification</strong>.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
                 <TabsContent value="fulfillment" className="space-y-4 mt-4">
                     <Card>
                         <CardHeader>
@@ -1246,23 +1131,6 @@ export default function AdminSettingsPage() {
                                     checked={pageAccessStorefront}
                                     onCheckedChange={setPageAccessStorefront}
                                     className="data-[state=checked]:bg-emerald-500"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 border rounded-lg border-amber-100 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-900/10">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base text-amber-600 dark:text-amber-500 font-bold flex items-center gap-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h2" /><path d="M20 12v8a2 2 0 0 1-2 2h-2" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" /><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" /></svg>
-                                        Marketplace Ad on Storefronts
-                                    </Label>
-                                    <p className="text-sm text-amber-700/70 dark:text-amber-300/70 font-medium">
-                                        Shows a &quot;Visit our Marketplace to Buy &amp; Sell&quot; promo banner and menu link on every seller storefront
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={storefrontMarketplaceAd}
-                                    onCheckedChange={setStorefrontMarketplaceAd}
-                                    className="data-[state=checked]:bg-amber-500"
                                 />
                             </div>
                         </CardContent>

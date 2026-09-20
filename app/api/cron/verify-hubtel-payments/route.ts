@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { checkPaymentStatus } from '@/lib/hubtel-payment-service'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
@@ -161,13 +162,10 @@ export async function GET(request: NextRequest) {
                                 throw new Error(airResult.error || 'Airtime order processing failed')
                             }
                             console.log(`[CronHubtel] ✅ Airtime order ${payment.reference} settled`)
-                        } else if (payment.reference.startsWith('BOOST-')) {
-                            const { processBoostPayment } = await import('@/lib/classifieds-payments')
-                            const boostResult = await processBoostPayment(payment.reference, mappedEventData)
-                            if (!boostResult.success && !boostResult.alreadyProcessed) {
-                                throw new Error(boostResult.error || 'Boost processing failed')
-                            }
-                            console.log(`[CronHubtel] ✅ Boost payment ${payment.reference} credited`)
+                        } else if (isRetiredBoostReference(payment.reference)) {
+                            // Confirmed paid, but the product is gone. Throwing leaves the row pending so it is reported every run until refunded.
+                            reportRetiredBoostPayment('CronHubtel', payment.reference)
+                            throw new Error(RETIRED_BOOST_MESSAGE)
                         } else if (
                             payment.reference.startsWith('agent_upgrade_') ||
                             metadata.upgrade_type === 'agent'

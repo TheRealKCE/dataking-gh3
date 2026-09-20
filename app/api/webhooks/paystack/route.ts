@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
@@ -247,16 +248,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
-            if (reference && reference.startsWith('BOOST-')) {
-                const { processBoostPayment } = await import('@/lib/classifieds-payments')
-                console.log('[PaystackWebhook] Routing listing boost payment:', reference)
-                const boostResult = await processBoostPayment(reference, event.data)
-
-                if (!boostResult.success && !boostResult.alreadyProcessed) {
-                    console.error('[PaystackWebhook] Boost processing failed:', boostResult.error)
-                    return NextResponse.json({ error: boostResult.error }, { status: 500 })
-                }
+            // o. RETIRED: BOOST- was the classifieds listing boost. Caught rather than dropped:
+            // unhandled it would reach the wallet top-up branch below and credit the payer.
+            if (isRetiredBoostReference(reference)) {
+                reportRetiredBoostPayment('PaystackWebhook', reference)
                 return NextResponse.json({ received: true })
             }
 

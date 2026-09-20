@@ -64,7 +64,6 @@ const userNavItems = [
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
     { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
-    { href: process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com', label: 'Marketplace', icon: Store, external: true },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/refer', label: 'Refer & Earn', icon: Gift },
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
@@ -80,7 +79,7 @@ const userNavItems = [
  * live under /dashboard/sub/* — separate implementations (own wallet debit,
  * upline-resolved pricing floor, owner-approved withdrawals) from the shared
  * customer pages `userNavItems` otherwise points at. Everything not listed
- * here (Data Packages, Buy Airtime, Wallet, Marketplace, Refer & Earn,
+ * here (Data Packages, Buy Airtime, Wallet, Refer & Earn,
  * Transactions, Complaints, Profile, Download App, Developer API, Commission
  * Wallet) is genuinely shared and needs no remap.
  */
@@ -110,7 +109,6 @@ const adminNavItems = [
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/packages', label: 'Packages', icon: Package },
-    { href: '/classifieds/admin/dashboard', label: 'Classifieds', icon: Store },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Announce', icon: Bell },
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },

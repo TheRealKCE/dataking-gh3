@@ -11,7 +11,7 @@
  * results the others already collected:
  *
  *   A  wallet_payments rows stamped provider='paystack_momo' — every signed-in
- *      checkout (wallet, data, utilities, boosts, upgrades, subscriptions).
+ *      checkout (wallet, data, utilities, upgrades, subscriptions).
  *   B  the four guest storefront flows, which write no wallet_payments row and are
  *      therefore found through a Redis marker instead of a provider column.
  *   C  the USSD sales and short-code activations previously swept by
@@ -23,6 +23,7 @@
  * must not be able to strand a customer's money.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
 import { verifyTransaction } from '@/lib/paystack-momo-service'
@@ -169,10 +170,10 @@ export async function GET(request: NextRequest) {
                         const { processAirtimeDirectOrder } = await import('@/lib/airtime-order-payments')
                         const r = await processAirtimeDirectOrder(payment.reference)
                         if (!r.success && !r.alreadyProcessed) throw new Error(r.error || 'Airtime order processing failed')
-                    } else if (payment.reference.startsWith('BOOST-')) {
-                        const { processBoostPayment } = await import('@/lib/classifieds-payments')
-                        const r = await processBoostPayment(payment.reference, mappedEventData)
-                        if (!r.success && !r.alreadyProcessed) throw new Error(r.error || 'Boost processing failed')
+                    } else if (isRetiredBoostReference(payment.reference)) {
+                        // Confirmed paid, but the product is gone. Throwing leaves the row pending so it is reported every run until refunded.
+                        reportRetiredBoostPayment('CronPaystackMomo', payment.reference)
+                        throw new Error(RETIRED_BOOST_MESSAGE)
                     } else if (
                         payment.reference.startsWith('agent_upgrade_')
                         || metadata.upgrade_type === 'agent'

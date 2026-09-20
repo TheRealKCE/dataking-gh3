@@ -28,33 +28,27 @@ export const PAYMENT_PROVIDERS = ['moolre', 'hubtel', 'paystack', 'paystack_momo
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number]
 
 /** The independently-configurable areas of the app. */
-export type PaymentScope = 'web' | 'shop' | 'classifieds' | 'ussd'
+export type PaymentScope = 'web' | 'shop' | 'ussd'
 
 /** admin_settings key backing each scope. */
 export const SCOPE_SETTING_KEY: Record<PaymentScope, string> = {
     web: 'active_payment_provider_web',
     shop: 'active_payment_provider_shop',
-    classifieds: 'active_payment_provider_classifieds',
     ussd: 'active_payment_provider_ussd',
 }
 
 /**
  * Providers each scope actually supports.
  *
- * Classifieds excludes Hubtel — the boost flow never had a Hubtel branch and
- * adding one is out of scope here. Listing it would let an admin select a
- * gateway that then falls back to Moolre at runtime.
- *
  * USSD is the narrowest scope and deliberately so. A dial-in caller has no browser,
- * so a hosted redirect cannot complete — 'paystack' is excluded for the same reason
- * Hubtel is excluded from classifieds. Moolre and PaySwitch have no USSD branch at
+ * so a hosted redirect cannot complete — 'paystack' is excluded because the flow has
+ * no branch for it. Moolre and PaySwitch have no USSD branch at
  * all. That leaves the Charge API and the pre-Paystack Hubtel AddToCart path, which
  * is the rollback.
  */
 export const SCOPE_PROVIDERS: Record<PaymentScope, readonly PaymentProvider[]> = {
     web: ['moolre', 'hubtel', 'paystack', 'paystack_momo', 'payswitch'],
     shop: ['moolre', 'hubtel', 'paystack', 'paystack_momo', 'payswitch'],
-    classifieds: ['moolre', 'paystack', 'paystack_momo', 'payswitch'],
     ussd: ['paystack_momo', 'hubtel'],
 }
 
@@ -71,7 +65,6 @@ export const DEFAULT_PAYMENT_PROVIDER: PaymentProvider = 'moolre'
 export const SCOPE_FALLBACK_PROVIDER: Record<PaymentScope, PaymentProvider> = {
     web: DEFAULT_PAYMENT_PROVIDER,
     shop: DEFAULT_PAYMENT_PROVIDER,
-    classifieds: DEFAULT_PAYMENT_PROVIDER,
     ussd: 'paystack_momo',
 }
 

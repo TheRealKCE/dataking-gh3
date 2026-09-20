@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* ── Signature gradient primitives ──────────────────────────────────────
-       L0-only. Sub-themes (.theme-marketplace, .theme-shop) may never override
+       L0-only. Sub-themes (.theme-shop) may never override
        these; they may only write the accent channel further down. */
     --brand-1: 262 83% 58%;   /* #7C3AED violet */
     --brand-2: 243 75% 59%;   /* #4F46E5 indigo */
@@ -65,8 +65,8 @@
     --secondary-foreground: 233 30% 20%;
     --accent: var(--accent-soft);
     /* Derived, not literal: a sub-theme may only write the accent channel, so
-       deriving the foreground from it is what lets .theme-marketplace get
-       emerald-on-emerald without being allowed to declare this directly. */
+       deriving the foreground from it is what lets a sub-theme such as .theme-shop
+       get a matching on-accent colour without being allowed to declare this directly. */
     --accent-foreground: var(--accent-strong);
 
     /* ── Status. L0-only: never themed, so "paid" never turns into brand. ─── */
@@ -423,18 +423,6 @@
     box-shadow: 0 25px 60px rgba(124,58,237,0.2);
   }
 
-  /* Slide 5 — Marketplace (emerald) */
-  .hero-slide-5 {
-    background: linear-gradient(145deg,#ffffff,#ecfdf5);
-    border: 1px solid rgba(16,185,129,0.18);
-    box-shadow: 0 25px 60px rgba(16,185,129,0.08);
-  }
-  .dark .hero-slide-5 {
-    background: linear-gradient(145deg,#04140d,#03110a);
-    border: 1px solid rgba(16,185,129,0.22);
-    box-shadow: 0 25px 60px rgba(16,185,129,0.18);
-  }
-
   /* ── Hero card mirror reflection (light mode only) ──────────────────── */
   .hero-reflect {
     position: absolute;
@@ -447,7 +435,7 @@
     -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 90%);
     mask-image: linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 90%);
     /* No filter: blur. The mask already fades the reflection out, and a blur
-       filter re-rasterizes all five layers on every frame of the slide
+       filter re-rasterizes all four layers on every frame of the slide
        transition. */
     pointer-events: none;
     transition: opacity 500ms, transform 500ms;
@@ -456,7 +444,6 @@
   .hero-reflect-2 { background: linear-gradient(145deg, #eef2ff, #ffffff); }
   .hero-reflect-3 { background: linear-gradient(145deg, #eff6ff, #ffffff); }
   .hero-reflect-4 { background: linear-gradient(145deg, #f5f3ff, #ffffff); }
-  .hero-reflect-5 { background: linear-gradient(145deg, #ecfdf5, #ffffff); }
 
   .hero-separator {
     background: linear-gradient(to right, transparent, rgba(37,99,235,0.10) 30%, rgba(124,58,237,0.10) 70%, transparent);
@@ -984,73 +971,4 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-}
-
-/* ============================================================
-   MARKETPLACE THEME (KFG Market on marketplace.arhmsgh.com)
-   ============================================================ */
-/* Accent channel only. The emerald-tinted neutrals that used to live here are
-   gone on purpose: marketplace surfaces, radii and elevation are now identical
-   to the rest of the app, and only the accent differs. Status colours are
-   L0-only, so the old --destructive override (which was amber, for "Sponsored"
-   labels) is dropped — .badge-sponsored already sets its own amber directly.
-
-   The emerald is also darkened from 39% to 30% lightness: 160 84% 39% is only
-   ~3.4:1 on white and failed WCAG AA for text and icons. */
-.theme-marketplace {
-  --accent-solid: 160 84% 30%;
-  --accent-strong: 160 84% 24%;
-  --accent-soft: 152 60% 95%;
-  --accent-softer: 152 60% 98%;
-  --accent-contrast: 0 0% 100%;
-  --accent-ring: 160 84% 34%;
-  --gradient-accent:
-    linear-gradient(135deg, hsl(168 82% 34%) 0%, hsl(160 84% 32%) 50%, hsl(186 90% 40%) 100%);
-  --glow-accent: 0 6px 18px -6px hsl(160 84% 32% / 0.40);
-}
-
-.theme-marketplace.dark {
-  --accent-solid: 158 68% 48%;
-  --accent-strong: 158 72% 56%;
-  --accent-soft: 160 34% 15%;
-  --accent-softer: 160 28% 11%;
-  --accent-contrast: 160 60% 7%;
-  --accent-ring: 158 68% 52%;
-  --gradient-accent:
-    linear-gradient(135deg, hsl(166 70% 44%) 0%, hsl(158 68% 48%) 50%, hsl(186 84% 52%) 100%);
-  --glow-accent: 0 6px 18px -6px hsl(158 68% 48% / 0.42);
-}
-
-/* Sponsored/Featured label styling for marketplace */
-.theme-marketplace .badge-sponsored {
-  @apply bg-amber-400 text-amber-950 font-semibold;
-}
-
-/* ── Reusable marketplace UI helpers (emerald system) ───────────────── */
-/* Listing card hover lift — used across feed, hero, favorites */
-.theme-marketplace .mkt-listing-card {
-  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
-}
-
-/* Condition / trust badges — consistent color coding everywhere */
-.theme-marketplace .badge-condition-new {
-  @apply bg-primary/10 text-primary border border-primary/20 font-medium;
-}
-.theme-marketplace .badge-condition-used {
-  @apply bg-muted text-muted-foreground border border-border font-medium;
-}
-.theme-marketplace .badge-verified {
-  @apply bg-primary/10 text-primary border border-primary/20 font-medium;
-}
-
-/* Emerald hero wash for landing / page banners */
-.theme-marketplace .mkt-hero {
-  background:
-    radial-gradient(1200px 400px at 50% -10%, hsl(160 84% 39% / 0.14), transparent 70%),
-    linear-gradient(to bottom, hsl(152 76% 96%), hsl(var(--background)));
-}
-.theme-marketplace.dark .mkt-hero {
-  background:
-    radial-gradient(1200px 400px at 50% -10%, hsl(160 84% 42% / 0.20), transparent 70%),
-    linear-gradient(to bottom, hsl(160 30% 7%), hsl(var(--background)));
 }

@@ -13,10 +13,8 @@ const STATIC_ALLOWED_ORIGINS = [
     'https://project-d3owc.vercel.app',
     'https://arhmsgh.com',
     'https://www.arhmsgh.com',
-    'https://marketplace.arhmsgh.com',
     'http://localhost:3000',
     'http://localhost:8081',
-    'http://marketplace.localhost:3000',
 ] as const
 
 function normalizeOrigin(value?: string | null): string | null {
@@ -110,15 +108,6 @@ const rateLimiters = redis ? {
     // ── Support & Cron ────────────────────────────────────────
     supportChat: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     cron: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
-    // ── Marketplace (classifieds → marketplace subdomain) ─────
-    marketplaceSearch: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
-    marketplaceFeed: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
-    marketplaceListingWrite: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 h') }),
-    marketplaceContactReveal: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
-    marketplaceBoostInit: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
-    marketplaceReport: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h') }),
-    marketplaceMessages: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
-    marketplaceUpload: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 h') }),
     // ── General catch-all ─────────────────────────────────────
     general: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m') }),
 } : null
@@ -223,29 +212,18 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next({ request: { headers: request.headers } })
     }
 
-    // === MARKETPLACE SUBDOMAIN ROUTING ===
-    // marketplace.arhmsgh.com serves the classifieds app (app/classifieds/*).
-    // Auth routes (/auth/*) redirect to the main domain (centralized auth).
-    // Only the bare root is rewritten to /classifieds so the landing URL stays
-    // clean; every in-app link is an absolute /classifieds/... path that falls
-    // through untouched — those pages are served directly AND the classifieds
-    // route guards further below still run. API routes and static assets also
-    // fall through to their real locations.
-    if (isMarketplace && pathname.startsWith('/auth')) {
-        const mainDomainUrl = new URL(pathname + request.nextUrl.search, process.env.NEXT_PUBLIC_APP_URL || 'https://arhmsgh.com')
-        return NextResponse.redirect(mainDomainUrl)
-    }
-
-    if (isMarketplace && pathname === '/') {
-        const rewriteUrl = new URL('/classifieds', request.url)
-        return NextResponse.rewrite(rewriteUrl, {
-            request: {
-                headers: new Headers({
-                    ...Object.fromEntries(request.headers),
-                    'x-subdomain': 'marketplace',
-                }),
-            },
-        })
+    // === RETIRED: MARKETPLACE SUBDOMAIN ===
+    // marketplace.arhmsgh.com used to serve the classifieds app. That product was removed,
+    // so the whole subdomain now sends visitors to the main site instead of a dead page.
+    // The query string is kept so a ?ref= referral link still attributes: the main domain's
+    // own run of this middleware captures it. /auth/* keeps its old behaviour of going to
+    // the same path on the main domain, so an old login link still lands somewhere useful.
+    if (isMarketplace) {
+        const mainDomain = process.env.NEXT_PUBLIC_APP_URL || 'https://arhmsgh.com'
+        const target = pathname.startsWith('/auth')
+            ? new URL(pathname + request.nextUrl.search, mainDomain)
+            : new URL('/' + request.nextUrl.search, mainDomain)
+        return NextResponse.redirect(target)
     }
 
     // === REFERRAL LINK CAPTURE ===
@@ -286,13 +264,20 @@ export async function middleware(request: NextRequest) {
             httpOnly: false,
             secure: process.env.NODE_ENV === 'production',
             // Shared across subdomains in prod, mirroring the auth cookie domain in
-            // lib/supabase.ts, so a link opened on marketplace.arhmsgh.com still
-            // attributes when the user signs up on www.arhmsgh.com.
+            // lib/supabase.ts, so a link opened on one subdomain still attributes when
+            // the user signs up on another.
             ...(request.nextUrl.hostname.endsWith('arhmsgh.com')
                 ? { domain: '.arhmsgh.com' }
                 : {}),
         })
         return addNoCacheHeaders(stash)
+    }
+
+    // === RETIRED: CLASSIFIEDS AND MARKETPLACE PATHS ===
+    // Both products were removed. An old shared listing link, a bookmark or a search result
+    // goes to the home page rather than a 404.
+    if (pathname.startsWith('/classifieds') || pathname.startsWith('/marketplace-domain')) {
+        return addNoCacheHeaders(NextResponse.redirect(new URL('/', request.url)))
     }
 
     // === CORS PREFLIGHT HANDLER ===
@@ -730,68 +715,6 @@ export async function middleware(request: NextRequest) {
             console.error('Middleware role check error:', error)
             if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
-        }
-    }
-
-    // === CLASSIFIEDS ROUTE GUARDS ===
-    if (pathname.startsWith('/classifieds')) {
-        // Public routes: /classifieds and /classifieds/[id]
-        if (pathname === '/classifieds' || /^\/classifieds\/[^\/]+$/.test(pathname)) {
-            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
-        }
-
-        // Seller-only routes: /classifieds/seller/*
-        if (pathname.startsWith('/classifieds/seller')) {
-            // The seller phone login page is itself a login screen — logged-out
-            // users MUST be able to reach it (otherwise it loops back here).
-            if (pathname === '/classifieds/seller/login') {
-                return addNoCacheHeaders(setCORSHeaders(res, request, origin))
-            }
-            if (!authUser) {
-                return addNoCacheHeaders(NextResponse.redirect(new URL(`/classifieds/auth/login?redirect=${encodeURIComponent(pathname)}`, request.url)))
-            }
-            // TODO: Check if user has is_seller flag in Phase 2
-            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
-        }
-
-        // Buyer-only routes: /classifieds/buyer/*
-        if (pathname.startsWith('/classifieds/buyer')) {
-            if (!authUser) {
-                return addNoCacheHeaders(NextResponse.redirect(new URL(`/classifieds/auth/login?redirect=${encodeURIComponent(pathname)}`, request.url)))
-            }
-            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
-        }
-
-        // Admin-only routes: /classifieds/admin/*
-        if (pathname.startsWith('/classifieds/admin')) {
-            if (!authUser) {
-                return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
-            }
-            // Check if user is admin
-            try {
-                const timeout = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Role check timeout')), 8000)
-                )
-
-                const roleQuery = supabase
-                    .from('users')
-                    .select('role')
-                    .eq('id', authUser.id)
-                    .single()
-
-                const { data: user } = await Promise.race([
-                    roleQuery,
-                    timeout
-                ]) as any
-
-                if (!user || !['admin', 'sub-admin'].includes(user.role)) {
-                    return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
-                }
-            } catch (error) {
-                console.error('Classifieds admin role check error:', error)
-                return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
-            }
-            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
         }
     }
 

@@ -82,8 +82,8 @@ export default function RootLayout({
     // request; that query is gone — SystemAnnouncementModal fetches
     // /api/public/announcement itself on the routes where it shows — but the
     // opt-out stays explicit. Removing it lets Next prerender ~370 pages at
-    // build time, many of which were never written to be static (e.g. /classifieds
-    // reads useSearchParams outside a Suspense boundary) and would bake in
+    // build time, many of which were never written to be static (some read
+    // useSearchParams outside a Suspense boundary) and would bake in
     // build-time data. Pages that want caching cache their data instead
     // (see app/page.tsx).
     noStore()

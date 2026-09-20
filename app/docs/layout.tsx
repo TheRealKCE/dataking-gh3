@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-// Public on purpose: middleware.ts gates /dashboard, /admin, /classifieds and /api,
+// Public on purpose: middleware.ts gates /dashboard, /admin and /api,
 // and /docs is none of those. A developer should be able to read the whole contract
 // before deciding to sign up — the key itself is still issued behind the login.
 export const metadata: Metadata = {

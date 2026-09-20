@@ -226,7 +226,7 @@ const NAV_VARIANTS = {
     // live under /dashboard/sub/* — separate implementations (own wallet debit,
     // upline-resolved pricing floor, owner-approved withdrawals) from the
     // customer pages the `dashboard` variant above points at. Everything not
-    // remapped here (Data Packages, Buy Airtime, Wallet, Marketplace, Refer &
+    // remapped here (Data Packages, Buy Airtime, Wallet, Refer &
     // Earn, Transactions, Complaints, Profile, Download App, Developer API,
     // Commission Wallet) is genuinely shared with the customer nav.
     'dashboard-sub': {
@@ -312,7 +312,6 @@ const NAV_VARIANTS = {
             shops: [
                 { href: '/admin/shops', label: 'Shops', icon: Store },
                 { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
-                { href: '/classifieds/admin/dashboard', label: 'Classifieds', icon: Store },
             ],
             users: [
                 { href: '/admin/users', label: 'Users', icon: Users },

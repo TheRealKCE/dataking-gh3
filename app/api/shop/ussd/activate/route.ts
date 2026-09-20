@@ -20,8 +20,8 @@ import { isUssdEnabled, USSD_ENABLED_KEY, USSD_UNAVAILABLE_MESSAGE } from '@/lib
  *
  * Mobile money goes through Paystack, matching the rest of the USSD stack: the
  * dial-in service moved to Paystack Mobile Money and this purchase followed it.
- * The gateway comes from the 'ussd' payment scope, the same registry the web, shop
- * and classifieds scopes use - selecting 'hubtel' there puts both this route and the
+ * The gateway comes from the 'ussd' payment scope, the same registry the web and shop
+ * scopes use - selecting 'hubtel' there puts both this route and the
  * dial-in service back on the old gateway, from the admin settings page and with no
  * deploy.
  *

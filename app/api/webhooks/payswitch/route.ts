@@ -18,6 +18,7 @@
  * prefix routing, the same idempotency check, the same pesewa amount verification.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { checkPaymentStatus } from '@/lib/payswitch-payment-service'
@@ -219,15 +220,10 @@ export async function POST(request: NextRequest) {
             return ack()
         }
 
-        if (reference.startsWith('BOOST-')) {
-            const { processBoostPayment } = await import('@/lib/classifieds-payments')
-            console.log('[PayswitchWebhook] Routing listing boost payment:', reference)
-            const boostResult = await processBoostPayment(reference, { reference, amount: amountPesewas })
-
-            if (!boostResult.success && !boostResult.alreadyProcessed) {
-                console.error('[PayswitchWebhook] Boost processing failed:', boostResult.error)
-                return NextResponse.json({ error: boostResult.error }, { status: 500 })
-            }
+        // RETIRED: BOOST- was the classifieds listing boost. Caught rather than dropped:
+        // unhandled it would reach the wallet top-up branch below and credit the payer.
+        if (isRetiredBoostReference(reference)) {
+            reportRetiredBoostPayment('PayswitchWebhook', reference)
             return ack()
         }
 

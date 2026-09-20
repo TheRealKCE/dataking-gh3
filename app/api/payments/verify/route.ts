@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isRetiredBoostReference, reportRetiredBoostPayment, RETIRED_BOOST_MESSAGE } from '@/lib/retired-boost'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
         const supabase = await createRouteHandlerClient()
         let { data: { user }, error: authError } = await supabase.auth.getUser()
 
-        // Fallback for classifieds that sends token in Authorization header
+        // Fallback for clients that send the token in an Authorization header instead of a cookie
         if (!user) {
             const authHeader = request.headers.get('authorization')
             if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -176,15 +177,12 @@ export async function GET(request: NextRequest) {
                 return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/airtime?success=true`)
             }
 
-            if (reference.startsWith('BOOST-')) {
-                const { processBoostPayment } = await import('@/lib/classifieds-payments')
-                const boostResult = await processBoostPayment(reference)
-                if (!boostResult.success && !boostResult.alreadyProcessed) {
-                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: boostResult.error || 'Boost processing failed' }, { status: 500 })
-                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_error=true`)
-                }
-                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
-                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
+            // RETIRED: a paid BOOST- for a discontinued product. Say so plainly rather than
+            // letting the catch-all below settle it as a wallet top-up.
+            if (isRetiredBoostReference(reference)) {
+                reportRetiredBoostPayment('PaymentVerify', reference)
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: RETIRED_BOOST_MESSAGE }, { status: 410 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=boost_discontinued`)
             }
 
             // Everything else settles here and RETURNS. This branch must NOT fall
@@ -374,16 +372,11 @@ export async function GET(request: NextRequest) {
                 return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/airtime?success=true`)
             }
 
-            // BOOST- has the same problem: the Moolre tail below would reject it.
-            if (reference.startsWith('BOOST-')) {
-                const { processBoostPayment } = await import('@/lib/classifieds-payments')
-                const result = await processBoostPayment(reference)
-                if (!result.success && !result.alreadyProcessed) {
-                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Boost processing failed' }, { status: 500 })
-                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_error=true`)
-                }
-                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
-                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
+            // RETIRED: same as above. The wallet settle path below must not see a BOOST-.
+            if (isRetiredBoostReference(reference)) {
+                reportRetiredBoostPayment('PaymentVerify', reference)
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: RETIRED_BOOST_MESSAGE }, { status: 410 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=boost_discontinued`)
             }
 
             // Wallet top-ups and upgrades fall through to the shared settle path,
@@ -469,16 +462,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/airtime?success=true`)
         }
 
-        // For BOOST- references, delegate to the boost processor
-        if (reference.startsWith('BOOST-')) {
-            const { processBoostPayment } = await import('@/lib/classifieds-payments')
-            const result = await processBoostPayment(reference)
-            if (!result.success && !result.alreadyProcessed) {
-                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Boost processing failed' }, { status: 500 })
-                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_error=true`)
-            }
-            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
-            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
+        // RETIRED: a BOOST- for a discontinued product. Caught here or it would fall through
+        // to the wallet top-up settle at the bottom of this route and credit the payer.
+        if (isRetiredBoostReference(reference)) {
+            reportRetiredBoostPayment('PaymentVerify', reference)
+            if (isInline) return NextResponse.json({ success: false, status: 'failed', error: RETIRED_BOOST_MESSAGE }, { status: 410 })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=boost_discontinued`)
         }
 
         // For ussd_activation_ references, mint the short code. Without this the
