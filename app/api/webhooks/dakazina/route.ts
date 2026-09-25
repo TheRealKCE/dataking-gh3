@@ -14,7 +14,9 @@ import crypto from 'crypto'
 //
 // Auth: their dashboard has a URL box and no header or secret field, so the secret
 // has to ride in the query string:
-//   https://arhmsgh.com/api/webhooks/dakazina?secret=<DAKAZINA_WEBHOOK_SECRET>
+//   https://arhmsgh.com/api/webhooks/dakazina?secret={your_secret}
+// {your_secret} is a placeholder: replace it, braces included, with the value of
+// the DAKAZINA_WEBHOOK_SECRET env var. Braces left in the registered URL 401.
 // Apex host, never www — www 307s to the apex and the redirect strips credentials.
 // Headers are still accepted first in case they ever add a field for them.
 //
