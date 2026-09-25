@@ -84,7 +84,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 })
         }
 
-        const { type, status, order_code, reference, transaction_code, transaction_id } = payload || {}
+        const {
+            type, status, order_code, reference, transaction_code, transaction_id,
+            // The ref WE send at /buy-data-package, under every spelling they might
+            // echo it back as. This is our own orders.id, and it is the ONLY key we
+            // control — worth far more than any code they mint, if they return it.
+            incoming_api_ref, api_ref, client_reference, custom_reference,
+        } = payload || {}
 
         if (type === 'test_event' || payload?.test === true) {
             console.log('[DakazinaWebhook] Test event received — acknowledged, no order touched')
@@ -122,6 +128,31 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerClient()
 
+        // Our own order id, if they echoed it back. Matching orders.id directly beats
+        // every supplier-minted code: when their create response carries no code of
+        // their own, dakazina_reference falls all the way back to this same id, and
+        // nothing they send can match it. Filtered to real UUIDs first — orders.id is
+        // a uuid column, and Postgres ERRORS on a malformed comparison value rather
+        // than returning no rows, which would 500 the whole delivery.
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        const ownIds = [incoming_api_ref, api_ref, client_reference, custom_reference]
+            .filter(v => v !== undefined && v !== null)
+            .map(v => String(v).trim())
+            .filter(v => UUID_RE.test(v))
+
+        if (ownIds.length > 0) {
+            const { data: byOwnId } = await (supabase
+                .from('orders') as any)
+                .select('id, status, shop_order_id')
+                .in('id', ownIds)
+                .limit(2)
+
+            if (byOwnId && byOwnId.length === 1) {
+                console.log(`[DakazinaWebhook] matched via our own ref ${ownIds[0]}`)
+                return await applyOutcome(supabase, byOwnId[0], newStatus, isTerminal, status)
+            }
+        }
+
         // Direct and storefront orders both stamp the supplier id on
         // orders.dakazina_reference, so this one lookup covers each.
         const { data: matches, error: lookupError } = await (supabase
@@ -149,62 +180,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
         }
 
-        const order = matches[0]
-
-        // Idempotent: only advance orders still in processing.
-        if (order.status !== 'processing') {
-            return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
-        }
-
-        // Raw supplier label, display only. Its own statement, error ignored on
-        // purpose: against a DB without the supplier_status migration PostgREST
-        // rejects the whole statement, and a cosmetic label must never take order
-        // completion down with it.
-        const supplierLabel = normaliseSupplierStatus(String(status ?? '')) || null
-        await (supabase.from('orders') as any)
-            .update({ supplier_status: isTerminal ? null : supplierLabel })
-            .eq('id', order.id)
-
-        if (order.shop_order_id) {
-            await (supabase.from('shop_orders') as any)
-                .update({ supplier_status: isTerminal ? null : supplierLabel })
-                .eq('id', order.shop_order_id)
-        }
-
-        // PROCESSING is one of the two triggers ticked in their dashboard, and the
-        // order is already 'processing' — the label above is all there is to record.
-        if (!isTerminal) {
-            console.log(`[DakazinaWebhook] order ${order.id}: supplier says "${status}" → ${newStatus} (no change)`)
-            return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
-        }
-
-        const { error: updErr } = await (supabase.from('orders') as any)
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
-            .eq('id', order.id)
-            // Second idempotency guard, at row level: two overlapping deliveries
-            // cannot both count this order.
-            .eq('status', 'processing')
-
-        if (updErr) {
-            console.error(`[DakazinaWebhook] orders update failed for ${order.id}: ${updErr.message}`)
-            // DEVIATION 1 again — make them retry rather than lose the completion.
-            return NextResponse.json({ success: false, error: 'Update failed' }, { status: 500 })
-        }
-
-        if (order.shop_order_id) {
-            await (supabase.from('shop_orders') as any)
-                .update({ status: newStatus, updated_at: new Date().toISOString() })
-                .eq('id', order.shop_order_id)
-                .eq('status', 'processing')
-        }
-
-        await syncShopOrderStatus(order.id, newStatus).catch(err =>
-            console.error(`[DakazinaWebhook] syncShopOrderStatus failed for ${order.id}:`, err)
-        )
-
-        console.log(`[DakazinaWebhook] order ${order.id}: processing → ${newStatus}${newStatus === 'failed' ? ' (manual refund required)' : ''}`)
-
-        return NextResponse.json({ success: true, updated: 1 }, { status: 200 })
+        return await applyOutcome(supabase, matches[0], newStatus, isTerminal, status)
 
     } catch (error: any) {
         console.error('[DakazinaWebhook] Unhandled exception:', error)
@@ -212,4 +188,69 @@ export async function POST(request: NextRequest) {
         // cron will re-check. Nothing re-checks Dakazina, so ask for the retry.
         return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 })
     }
+}
+
+// Shared by both match paths (our own ref, and their codes) so a completion behaves
+// identically however the order was found.
+async function applyOutcome(
+    supabase: any,
+    order: { id: string; status: string; shop_order_id?: string | null },
+    newStatus: string,
+    isTerminal: boolean,
+    rawStatus: any,
+): Promise<NextResponse> {
+    // Idempotent: only advance orders still in processing.
+    if (order.status !== 'processing') {
+        return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
+    }
+
+    // Raw supplier label, display only. Its own statement, error ignored on
+    // purpose: against a DB without the supplier_status migration PostgREST
+    // rejects the whole statement, and a cosmetic label must never take order
+    // completion down with it.
+    const supplierLabel = normaliseSupplierStatus(String(rawStatus ?? '')) || null
+    await (supabase.from('orders') as any)
+        .update({ supplier_status: isTerminal ? null : supplierLabel })
+        .eq('id', order.id)
+
+    if (order.shop_order_id) {
+        await (supabase.from('shop_orders') as any)
+            .update({ supplier_status: isTerminal ? null : supplierLabel })
+            .eq('id', order.shop_order_id)
+    }
+
+    // WAITING/PROCESSING are non-terminal: the order is already 'processing', so the
+    // label above is all there is to record.
+    if (!isTerminal) {
+        console.log(`[DakazinaWebhook] order ${order.id}: supplier says "${rawStatus}" → ${newStatus} (no change)`)
+        return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
+    }
+
+    const { error: updErr } = await (supabase.from('orders') as any)
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', order.id)
+        // Second idempotency guard, at row level: two overlapping deliveries
+        // cannot both count this order.
+        .eq('status', 'processing')
+
+    if (updErr) {
+        console.error(`[DakazinaWebhook] orders update failed for ${order.id}: ${updErr.message}`)
+        // DEVIATION 1 again — make them retry rather than lose the completion.
+        return NextResponse.json({ success: false, error: 'Update failed' }, { status: 500 })
+    }
+
+    if (order.shop_order_id) {
+        await (supabase.from('shop_orders') as any)
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', order.shop_order_id)
+            .eq('status', 'processing')
+    }
+
+    await syncShopOrderStatus(order.id, newStatus).catch(err =>
+        console.error(`[DakazinaWebhook] syncShopOrderStatus failed for ${order.id}:`, err)
+    )
+
+    console.log(`[DakazinaWebhook] order ${order.id}: processing → ${newStatus}${newStatus === 'failed' ? ' (manual refund required)' : ''}`)
+
+    return NextResponse.json({ success: true, updated: 1 }, { status: 200 })
 }
