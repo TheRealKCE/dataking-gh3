@@ -4,8 +4,18 @@
  *
  * Every sub gate needs the same three facts: the membership row, who the upline
  * is, and whether that upline is *still* eligible to run a network. Eligibility
- * is evaluated live at every gate (never cached) because a dealer whose
- * subscription lapsed must stop backing their subs the moment it lapses.
+ * is evaluated live at every gate (never cached) so a Lead who is shut down
+ * stops backing their subs the moment it happens.
+ *
+ * Eligibility is the Lead's *shop* standing — approved and active — not their
+ * user role. The original rule was canOwnSubNetwork() (lifetime agent or paid
+ * dealer), but a Lead is made by getting a shop approved, not by buying a
+ * subscription: in production essentially every live Lead is role 'customer',
+ * so that rule failed for all of them and blocked their subs' wallet purchases.
+ * Every other sub gate (AFA, RC, USSD, the sub's own storefront) had already
+ * stopped consulting it for that reason; this is the last one to line up. A
+ * Lead whose role does clear canOwnSubNetwork() still passes, so an approved
+ * shop is a floor and never a demotion.
  *
  * Since the network runs three levels deep (Lead → sub → sub-of-sub), the
  * context also carries the whole ancestor `chain`. Splitting an order's profit
@@ -60,7 +70,7 @@ const MAX_CHAIN_HOPS = 4
 /** Wording reused by every gate so a blocked sub always reads the same message. */
 export const SUB_INACTIVE_ERROR = 'Your sub-agent account is not active'
 export const UPLINE_INELIGIBLE_ERROR =
-    'Your upline Lead is no longer eligible to operate. Please contact support.'
+    'Your upline Lead’s shop is not active right now. Please contact support.'
 export const DEPTH_LIMIT_ERROR =
     'Your network is already at its maximum depth, so you cannot recruit sub-agents.'
 
@@ -123,6 +133,47 @@ export async function resolveSubAgentChain(
 }
 
 /**
+ * Is the upline still fit to back a sub-network?
+ *
+ * True while their shop is approved and switched on — that is what makes
+ * someone a Lead in the first place. A role that clears canOwnSubNetwork()
+ * (lifetime agent, or a dealer whose subscription is live) also passes, so a
+ * Lead who bought standing is never blocked by a missing shop row.
+ */
+async function isUplineEligible(
+    db: any,
+    uplineShopId: string | null,
+    uplineOwnerId: string | null
+): Promise<boolean> {
+    if (!uplineOwnerId) return false
+
+    if (uplineShopId) {
+        const { data: shop } = await db
+            .from('shop_profiles')
+            .select('approval_status, is_active')
+            .eq('id', uplineShopId)
+            .maybeSingle()
+
+        const approved = (shop as any)?.approval_status === 'approved'
+        if (approved && (shop as any)?.is_active !== false) return true
+    }
+
+    const { data: uplineUser } = await db
+        .from('users')
+        .select('role, agent_expires_at, dealer_expires_at')
+        .eq('id', uplineOwnerId)
+        .maybeSingle()
+
+    if (!uplineUser) return false
+
+    return canOwnSubNetwork({
+        role: (uplineUser as any).role,
+        agentExpiresAt: (uplineUser as any).agent_expires_at ?? null,
+        dealerExpiresAt: (uplineUser as any).dealer_expires_at ?? null,
+    })
+}
+
+/**
  * Resolves the sub-agent context for `userId`.
  *
  * @param db A service-role client — sub_agents and the upline's users row are
@@ -162,22 +213,11 @@ export async function resolveSubAgentContext(
     const directUpline = chain[0] ?? null
     const uplineOwnerId = directUpline?.ownerId ?? null
 
-    let uplineEligible = false
-    if (uplineOwnerId) {
-        const { data: uplineUser } = await db
-            .from('users')
-            .select('role, agent_expires_at, dealer_expires_at')
-            .eq('id', uplineOwnerId)
-            .maybeSingle()
-
-        if (uplineUser) {
-            uplineEligible = canOwnSubNetwork({
-                role: (uplineUser as any).role,
-                agentExpiresAt: (uplineUser as any).agent_expires_at ?? null,
-                dealerExpiresAt: (uplineUser as any).dealer_expires_at ?? null,
-            })
-        }
-    }
+    const uplineEligible = await isUplineEligible(
+        db,
+        directUpline?.shopId ?? uplineShopId,
+        uplineOwnerId
+    )
 
     return {
         isSub: true,
