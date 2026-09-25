@@ -128,29 +128,63 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerClient()
 
-        // Our own order id, if they echoed it back. Matching orders.id directly beats
-        // every supplier-minted code: when their create response carries no code of
-        // their own, dakazina_reference falls all the way back to this same id, and
-        // nothing they send can match it. Filtered to real UUIDs first — orders.id is
-        // a uuid column, and Postgres ERRORS on a malformed comparison value rather
-        // than returning no rows, which would 500 the whole delivery.
-        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        const ownIds = [incoming_api_ref, api_ref, client_reference, custom_reference]
-            .filter(v => v !== undefined && v !== null)
-            .map(v => String(v).trim())
-            .filter(v => UUID_RE.test(v))
+        // Our own order id, EMBEDDED in their reference. Confirmed from a live event:
+        //
+        //   reference = "875772ad44b-3808-4fab-8cd0-4c7d5998eeb30248781324"
+        //                  └──────── 772ad44b-3808-4fab-8cd0-4c7d5998eeb3 ────────┘
+        //
+        // i.e. a 3-char prefix, our orders.id, then a 10-digit suffix. They do NOT
+        // send incoming_api_ref as its own field, and transaction_code comes through
+        // empty — their real keys are:
+        //   type,status,previous_status,user_id,occurred_at,id,order_code,reference,
+        //   amount,metadata
+        // So this embedded id is the ONLY link between their event and our order.
+        //
+        // Scanned with a SUBSTRING search over every string the payload carries, not
+        // anchored, because the affix lengths are theirs to change and only one real
+        // sample has been seen. Wrong guesses cost nothing: a UUID that is not one of
+        // ours simply matches no row.
+        const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+
+        const scanForIds = (value: any, depth = 0): string[] => {
+            if (depth > 3 || value === null || value === undefined) return []
+            if (typeof value === 'string') return value.match(UUID_RE) || []
+            if (Array.isArray(value)) return value.flatMap(v => scanForIds(v, depth + 1))
+            if (typeof value === 'object') return Object.values(value).flatMap(v => scanForIds(v, depth + 1))
+            return []
+        }
+
+        // Explicit fields first, then anything else in the payload (metadata included).
+        const ownIds = Array.from(new Set([
+            ...scanForIds([incoming_api_ref, api_ref, client_reference, custom_reference]),
+            ...scanForIds(reference),
+            ...scanForIds(order_code),
+            ...scanForIds(payload),
+        ].map(v => v.toLowerCase())))
 
         if (ownIds.length > 0) {
-            const { data: byOwnId } = await (supabase
+            const { data: byOwnId, error: ownIdError } = await (supabase
                 .from('orders') as any)
                 .select('id, status, shop_order_id')
                 .in('id', ownIds)
                 .limit(2)
 
+            if (ownIdError) {
+                console.error(`[DakazinaWebhook] embedded-id lookup failed: ${ownIdError.message}`)
+                return NextResponse.json({ success: false, error: 'Lookup failed' }, { status: 500 })
+            }
+
             if (byOwnId && byOwnId.length === 1) {
-                console.log(`[DakazinaWebhook] matched via our own ref ${ownIds[0]}`)
+                console.log(`[DakazinaWebhook] matched order ${byOwnId[0].id} via id embedded in their reference`)
                 return await applyOutcome(supabase, byOwnId[0], newStatus, isTerminal, status)
             }
+
+            if (byOwnId && byOwnId.length > 1) {
+                console.error(`[DakazinaWebhook] AMBIGUOUS: embedded ids [${ownIds.join(', ')}] hit multiple orders — refusing`)
+                return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
+            }
+
+            console.warn(`[DakazinaWebhook] embedded ids [${ownIds.join(', ')}] matched no order — falling back to reference match`)
         }
 
         // Direct and storefront orders both stamp the supplier id on
