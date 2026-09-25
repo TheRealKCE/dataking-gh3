@@ -50,7 +50,12 @@ function mapDakazinaStatus(status: string): 'pending' | 'processing' | 'complete
     const s = normaliseSupplierStatus(status)
     const COMPLETED = ['completed', 'complete', 'delivered', 'success', 'successful', 'credited', 'fulfilled']
     const FAILED = ['failed', 'failure', 'cancelled', 'canceled', 'refund', 'refunded', 'rejected', 'reversed', 'declined']
-    const IN_FLIGHT = ['processing', 'pending', 'queued', 'in progress', 'verifying', 'on hold', 'onhold', 'awaiting verification', 'pending verification', 'under review']
+    // 'waiting' is Dakazina's own held-for-review state; it surfaces as
+    // "On Hold — Verifying" via VERIFYING_LABELS, not as a status change.
+    // 'verified'/'unverified' are the two remaining dashboard triggers and are
+    // deliberately absent: their meaning is unconfirmed, and an unlisted label
+    // falls through to a non-terminal state rather than guessing at completion.
+    const IN_FLIGHT = ['processing', 'pending', 'queued', 'in progress', 'waiting', 'verifying', 'on hold', 'onhold', 'awaiting verification', 'pending verification', 'under review']
     if (COMPLETED.includes(s)) return 'completed'
     if (FAILED.includes(s)) return 'failed'
     if (IN_FLIGHT.includes(s)) return 'processing'
@@ -79,30 +84,39 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 })
         }
 
-        const { type, status, order_code, reference } = payload || {}
+        const { type, status, order_code, reference, transaction_code, transaction_id } = payload || {}
 
         if (type === 'test_event' || payload?.test === true) {
             console.log('[DakazinaWebhook] Test event received — acknowledged, no order touched')
             return NextResponse.json({ success: true, message: 'Test event received' }, { status: 200 })
         }
 
-        // Their real events have never been observed, so log the shape of the first
-        // ones: which identifiers actually arrive is the open question this answers.
+        // Their real events have never been observed, so log the WHOLE payload's shape:
+        // which identifiers actually arrive is the open question this answers, and the
+        // field names matter more than the values. Keys only — no values, since the
+        // payload may carry a customer's number.
         console.log(
-            `[DakazinaWebhook] event status='${status}' order_code='${order_code ?? ''}' reference='${reference ?? ''}'`
+            `[DakazinaWebhook] event status='${status}' order_code='${order_code ?? ''}' ` +
+            `reference='${reference ?? ''}' transaction_code='${transaction_code ?? ''}' ` +
+            `keys=[${Object.keys(payload || {}).join(',')}]`
         )
 
         const newStatus = mapDakazinaStatus(String(status ?? ''))
         const isTerminal = newStatus === 'completed' || newStatus === 'failed'
 
-        // Both identifiers are tried: we stamp order_code when they return one and fall
-        // back to reference, and which of the two they send is not yet confirmed.
-        const candidates = [order_code, reference]
+        // Every identifier the event offers is tried, because which one we stamped
+        // depends on WHEN the order was placed:
+        //   • after the webhookRef fix  → dakazina_reference holds order_code
+        //   • before it                 → it holds transaction_code, or our own order id
+        // Including transaction_code/transaction_id is what gives the older backlog a
+        // chance of matching at all. It costs nothing when absent, and the
+        // exactly-one-match guard below still refuses to act on an ambiguous hit.
+        const candidates = [order_code, reference, transaction_code, transaction_id]
             .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
             .map(v => String(v))
 
         if (candidates.length === 0) {
-            console.warn('[DakazinaWebhook] Event carried no order_code or reference — cannot match')
+            console.warn('[DakazinaWebhook] Event carried no usable identifier — cannot match')
             return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
         }
 
