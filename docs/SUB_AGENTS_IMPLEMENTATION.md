@@ -123,13 +123,17 @@ grep -r "sub_agents\|isSub" app/api/orders app/api/v1 lib/shop*
 
 ### Live Eligibility Check
 
+A Lead is eligible while their **shop** is approved and active. Role standing
+(`canOwnSubNetwork()` in `lib/pricing/cost-basis.ts`: lifetime agent or unexpired
+dealer) is accepted as an alternative, never as a requirement — a Lead is made by
+getting a shop approved, not by buying a subscription, and in production nearly
+every live Lead is role `customer`.
+
 ```typescript
-// In TypeScript (lib/pricing/cost-basis.ts):
-function canOwnSubNetwork(owner: OwnerState): boolean {
-  const now = new Date()
-  // (role='agent' AND agent_expires_at IS NULL) OR (role='dealer' AND dealer_expires_at > now())
-  return (owner.role === 'agent' && !owner.agentExpiresAt)
-      || (owner.role === 'dealer' && owner.dealerExpiresAt && new Date(owner.dealerExpiresAt) > now)
+// In TypeScript (lib/sub-agents.ts):
+async function isUplineEligible(db, uplineShopId, uplineOwnerId) {
+  // shop_profiles.approval_status = 'approved' AND shop_profiles.is_active
+  //   OR canOwnSubNetwork(upline user)
 }
 ```
 
@@ -338,8 +342,8 @@ Sub sees "Powered by {Lead shop name}" footer (honest limits: SMS sender ID + em
   but the payout for those three still credits only the seller (airtime) or only
   the direct upline (RC/AFA), exactly as at two levels.
 - Wallet-mode purchases still pay no upline: `credit_lead_margin()` exists and is
-  never called, and `canOwnSubNetwork()` still gates `lib/data-order-pricing.ts`
-  while most live Leads are role `customer`.
+  never called. The eligibility gate in `lib/data-order-pricing.ts` no longer
+  blocks them — it reads the Lead's shop standing rather than their role.
 
 ---
 

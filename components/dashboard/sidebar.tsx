@@ -61,8 +61,6 @@ const userNavItems = [
     { href: '/dashboard/afa-orders', label: 'AFA Registration', icon: BadgeCheck },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
     { href: '/dashboard/utilities', label: 'Pay Bills', icon: Receipt },
-    { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
-    { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/refer', label: 'Refer & Earn', icon: Gift },
@@ -134,8 +132,6 @@ export function DashboardSidebar() {
     const [webProvider, setWebProvider] = useState<PaymentProvider>('moolre')
     const [shopProvider, setShopProvider] = useState<PaymentProvider>('moolre')
     const [providerSaving, setProviderSaving] = useState<'web' | 'shop' | null>(null)
-    const [hideMashup, setHideMashup] = useState(false)
-    const [hideExpressMtn, setHideExpressMtn] = useState(false)
     // Seed from the cached value so the sidebar renders collapsed on the first paint
     // when RC-only mode is on, instead of flashing the full menu before the fetch lands.
     const [resultsCheckerOnly, setResultsCheckerOnly] = useState(() => {
@@ -144,16 +140,10 @@ export function DashboardSidebar() {
     })
 
     useEffect(() => {
-        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,results_checker_only_mode')
+        fetch('/api/admin-settings?keys=results_checker_only_mode')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (!data) return
-                if (String(data.special_mtn_mashup_hidden) === 'true') {
-                    setHideMashup(true)
-                }
-                if (String(data.express_mtn_hidden) === 'true') {
-                    setHideExpressMtn(true)
-                }
                 const rcOn = String(data.results_checker_only_mode) === 'true'
                 setResultsCheckerOnly(rcOn)
                 try { window.localStorage.setItem('rc_only_mode', rcOn ? 'true' : 'false') } catch {}
@@ -529,7 +519,6 @@ export function DashboardSidebar() {
 
                     {resolvedUserNavItems
                     .filter(item => !rcOnly || item.href === '/dashboard/results-checker')
-                    .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN'))
                     .filter(item => isPageAccessible('/dashboard/data-packages') || !item.href.startsWith('/dashboard/data-packages'))
                         .map((item) => {
                         const isExternal = 'external' in item && item.external
