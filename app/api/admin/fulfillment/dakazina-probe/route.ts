@@ -30,9 +30,13 @@ function redact(value: any): any {
     if (typeof value === 'object') return `{object:${Object.keys(value).join('|')}}`
 
     const s = String(value)
-    // A run of 9+ digits is a phone number or an account id — length only.
-    if (/\d{9,}/.test(s)) return `<${s.length} chars, digits>`
-    if (s.length > 64) return `<${s.length} chars>`
+    // Mask ONLY all-digit strings — those are phone numbers and account ids.
+    // A reference is mixed (hex, dashes) and must stay readable: Dakazina wraps our
+    // orders.id inside it ("875" + uuid + "0248781324"), and that embedded uuid is
+    // the entire point of this probe. An earlier version masked any string
+    // CONTAINING 9+ digits, which hid the reference — the one field that matters.
+    if (/^\d{9,}$/.test(s.trim())) return `<${s.trim().length} digits>`
+    if (s.length > 200) return `${s.slice(0, 200)}…<${s.length} chars>`
     return s
 }
 
@@ -99,7 +103,56 @@ export async function GET(request: NextRequest) {
 
         const firstRow = rows[0] && typeof rows[0] === 'object' ? rows[0] : null
 
+        // ── Dry run: what WOULD the reconciliation cron do? ──────────────────
+        // Read-only. Answers the two questions a sample row cannot: do these rows
+        // carry our orders.id at all, and do their status labels map to anything.
+        const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+        const STATUS_KEYS = ['status', 'transaction_status', 'order_status', 'delivery_status', 'state', 'current_status']
+
+        const scan = (v: any, d = 0): string[] => {
+            if (d > 3 || v === null || v === undefined) return []
+            if (typeof v === 'string') return v.match(UUID_RE) || []
+            if (Array.isArray(v)) return v.flatMap(x => scan(x, d + 1))
+            if (typeof v === 'object') return Object.values(v).flatMap(x => scan(x, d + 1))
+            return []
+        }
+
+        const allIds = new Set<string>()
+        const labels = new Set<string>()
+        let rowsWithUuid = 0
+        let rowsWithStatus = 0
+
+        for (const r of rows) {
+            if (!r || typeof r !== 'object') continue
+            const ids = scan(r)
+            if (ids.length > 0) { rowsWithUuid++; ids.forEach(i => allIds.add(i.toLowerCase())) }
+            const statusKey = STATUS_KEYS.find(k => typeof r[k] === 'string' && r[k].trim() !== '')
+            if (statusKey) { rowsWithStatus++; labels.add(String(r[statusKey]).trim().toLowerCase()) }
+        }
+
+        // How many of those ids are actually orders of ours still in flight?
+        let ourOrdersStillProcessing = 0
+        if (allIds.size > 0) {
+            const { createServerClient } = await import('@/lib/supabase')
+            const supabase = createServerClient()
+            const idList = Array.from(allIds).slice(0, 500)
+            const { count } = await (supabase
+                .from('orders') as any)
+                .select('id', { count: 'exact', head: true })
+                .in('id', idList)
+                .eq('status', 'processing')
+            ourOrdersStillProcessing = count || 0
+        }
+
         return NextResponse.json({
+            dryRun: {
+                rowsWithUuidInThem: rowsWithUuid,
+                rowsWithAStatusField: rowsWithStatus,
+                distinctUuidsFound: allIds.size,
+                // THE number: how many stuck orders this feed could actually fix.
+                ourOrdersStillProcessing,
+                statusLabelsSeen: Array.from(labels),
+            },
             ok: response.ok,
             httpStatus: response.status,
             topLevelKeys: data && typeof data === 'object' ? Object.keys(data) : [],
