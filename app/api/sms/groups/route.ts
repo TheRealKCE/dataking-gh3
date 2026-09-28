@@ -83,17 +83,24 @@ export async function POST(request: Request) {
             const addIds: string[] = Array.isArray(body.addContactIds) ? body.addContactIds : []
             const removeIds: string[] = Array.isArray(body.removeContactIds) ? body.removeContactIds : []
 
-            if (addIds.length) {
-                // Only this account's own contacts may be put into its group: the
-                // id list comes from the client.
-                const { data: owned } = await supabaseAdmin
-                    .from('sms_contacts')
-                    .select('id')
-                    .eq('account_id', account.id)
-                    .in('id', addIds)
+            // "Select all" can hand us thousands of ids, and both the ownership
+            // check and the delete put them in the query string — past a few
+            // hundred that is a 414, so every id list is worked in chunks.
+            const CHUNK = 200
 
-                const rows = (owned || []).map((c: any) => ({ group_id: body.groupId, contact_id: c.id }))
-                if (rows.length) {
+            if (addIds.length) {
+                for (let i = 0; i < addIds.length; i += CHUNK) {
+                    // Only this account's own contacts may be put into its group:
+                    // the id list comes from the client.
+                    const { data: owned } = await supabaseAdmin
+                        .from('sms_contacts')
+                        .select('id')
+                        .eq('account_id', account.id)
+                        .in('id', addIds.slice(i, i + CHUNK))
+
+                    const rows = (owned || []).map((c: any) => ({ group_id: body.groupId, contact_id: c.id }))
+                    if (!rows.length) continue
+
                     const { error } = await (supabaseAdmin.from('sms_group_members') as any)
                         .upsert(rows, { onConflict: 'group_id,contact_id', ignoreDuplicates: true })
                     if (error) {
@@ -104,11 +111,13 @@ export async function POST(request: Request) {
             }
 
             if (removeIds.length) {
-                await supabaseAdmin
-                    .from('sms_group_members')
-                    .delete()
-                    .eq('group_id', body.groupId)
-                    .in('contact_id', removeIds)
+                for (let i = 0; i < removeIds.length; i += CHUNK) {
+                    await supabaseAdmin
+                        .from('sms_group_members')
+                        .delete()
+                        .eq('group_id', body.groupId)
+                        .in('contact_id', removeIds.slice(i, i + CHUNK))
+                }
             }
 
             return NextResponse.json({ success: true })

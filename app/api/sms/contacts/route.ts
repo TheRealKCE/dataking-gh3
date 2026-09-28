@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { loadSmsContext } from '@/lib/sms/sms-purchase'
 import { normalizeGhanaPhone } from '@/lib/sms-service'
+import { fetchAllRows } from '@/lib/supabase-pagination'
 
 /**
  * The shop's customer list.
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
         const page = Math.max(0, parseInt(url.searchParams.get('page') || '0'))
         const search = (url.searchParams.get('search') || '').trim()
         const groupId = url.searchParams.get('groupId')
+        // "Select all N" asks for every matching id rather than a page of rows,
+        // so the client can tick a list longer than the page it can see.
+        const idsOnly = url.searchParams.get('ids') === '1'
         const PAGE_SIZE = 100
 
         let query = supabaseAdmin
@@ -35,15 +39,27 @@ export async function GET(request: Request) {
         }
 
         if (groupId) {
-            const { data: members } = await supabaseAdmin
-                .from('sms_group_members')
-                .select('contact_id')
-                .eq('group_id', groupId)
-            const ids = (members || []).map((m: any) => m.contact_id)
+            // Paged: PostgREST caps at 1000 rows, and a truncated membership
+            // would quietly hide the rest of a big group from its own filter.
+            const { data: members } = await fetchAllRows<{ contact_id: string }>(() =>
+                supabaseAdmin
+                    .from('sms_group_members')
+                    .select('contact_id')
+                    .eq('group_id', groupId)
+                    .order('contact_id', { ascending: true })
+            )
+            const ids = members.map((m) => m.contact_id)
             if (!ids.length) {
-                return NextResponse.json({ success: true, contacts: [], total: 0, page })
+                return NextResponse.json({ success: true, contacts: [], total: 0, page, ids: [] })
             }
             query = query.in('id', ids)
+        }
+
+        if (idsOnly) {
+            const { data: rows } = await fetchAllRows<{ id: string }>(() =>
+                query.order('created_at', { ascending: false })
+            )
+            return NextResponse.json({ success: true, ids: rows.map((r) => r.id), total: rows.length })
         }
 
         const { data: contacts, count } = await query

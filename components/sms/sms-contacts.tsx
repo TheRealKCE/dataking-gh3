@@ -107,6 +107,7 @@ export function SmsContacts({
     const [pasteText, setPasteText] = useState('')
     const [newGroupName, setNewGroupName] = useState('')
     const [saving, setSaving] = useState(false)
+    const [selectingAll, setSelectingAll] = useState(false)
     const fileRef = useRef<HTMLInputElement>(null)
 
     const load = useCallback(async () => {
@@ -308,6 +309,45 @@ export function SmsContacts({
         onGroupsChanged()
     }
 
+    const pageIds = contacts.map((c) => c.id)
+    const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
+
+    /** Ticks or clears every customer on this page, leaving other pages alone. */
+    const togglePage = () => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev)
+            if (allOnPageSelected) pageIds.forEach((id) => next.delete(id))
+            else pageIds.forEach((id) => next.add(id))
+            return next
+        })
+    }
+
+    /**
+     * Ticks every customer the current search and group filter match, not just
+     * the hundred on screen — the ids come from the server, since the client
+     * has never seen the rest.
+     */
+    const selectAllMatching = async () => {
+        setSelectingAll(true)
+        try {
+            const params = new URLSearchParams({ ids: '1' })
+            if (search.trim()) params.set('search', search.trim())
+            if (groupFilter !== ALL) params.set('groupId', groupFilter)
+            const res = await fetch(`/api/sms/contacts?${params}`, { cache: 'no-store' })
+            const data = await res.json()
+            if (!res.ok || !data?.success) {
+                toast.error(data?.error || 'Could not select everyone')
+                return
+            }
+            setSelectedIds(new Set<string>(data.ids))
+            toast.success(`${data.ids.length.toLocaleString()} customers selected`)
+        } catch {
+            toast.error('Could not select everyone')
+        } finally {
+            setSelectingAll(false)
+        }
+    }
+
     const toggleSelected = (id: string) => {
         setSelectedIds((prev) => {
             const next = new Set(prev)
@@ -403,6 +443,11 @@ export function SmsContacts({
                     {selectedIds.size > 0 && (
                         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted p-2 text-sm">
                             <span className="font-semibold">{selectedIds.size} selected</span>
+                            {selectedIds.size < total && (
+                                <Button size="sm" variant="outline" className="h-8" onClick={selectAllMatching} disabled={selectingAll}>
+                                    {selectingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : `Select all ${total.toLocaleString()}`}
+                                </Button>
+                            )}
                             {userGroups.length > 0 && (
                                 <Select onValueChange={addSelectedToGroup}>
                                     <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Add to group…" /></SelectTrigger>
@@ -426,6 +471,17 @@ export function SmsContacts({
                         </p>
                     ) : (
                         <div className="divide-y rounded-xl border">
+                            <div className="flex items-center gap-3 p-3 bg-muted/40">
+                                <Checkbox
+                                    checked={allOnPageSelected}
+                                    onCheckedChange={togglePage}
+                                    aria-label="Select all on this page"
+                                />
+                                <span className="text-xs font-semibold">
+                                    {allOnPageSelected ? 'Clear this page' : 'Select all'}
+                                    <span className="text-muted-foreground font-normal"> ({contacts.length} shown)</span>
+                                </span>
+                            </div>
                             {contacts.map((c) => (
                                 <div key={c.id} className="flex items-center gap-3 p-3">
                                     <Checkbox checked={selectedIds.has(c.id)} onCheckedChange={() => toggleSelected(c.id)} />
