@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validateAdminAccess } from '@/lib/auth-utils'
 import { SMS_UNLOCK_PRICE_KEYS, SMS_PROVIDER_KEY } from '@/lib/sms/sms-purchase'
+import { isKingFlexySmsConfigured } from '@/lib/kingflexy-sms-service'
+import { getActiveSmsProvider } from '@/lib/sms-service'
 
 /**
  * Customer SMS configuration: the master switch, unlock prices per tier, pool
@@ -45,7 +47,17 @@ export async function GET(request: NextRequest) {
             .select('id, name, credits, price, sort_order, is_active')
             .order('sort_order', { ascending: true })
 
-        return NextResponse.json({ success: true, settings, bundles: bundles || [] })
+        // What Customer SMS will actually send through, which is not always the
+        // global gateway toggle — see the send route.
+        const kingflexyConfigured = isKingFlexySmsConfigured()
+        return NextResponse.json({
+            success: true,
+            settings,
+            bundles: bundles || [],
+            kingflexyConfigured,
+            platformGateway: await getActiveSmsProvider(),
+            customerSmsGateway: kingflexyConfigured ? 'kingflexy' : await getActiveSmsProvider(),
+        })
     } catch (error: any) {
         console.error('[AdminSmsConfig] GET error:', error)
         return NextResponse.json({ error: 'Failed to load SMS settings' }, { status: 500 })

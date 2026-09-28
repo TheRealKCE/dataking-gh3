@@ -268,6 +268,7 @@ function SmsSettings() {
     const [deleteIds, setDeleteIds] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [gateway, setGateway] = useState<{ customer: string; platform: string; kingflexy: boolean } | null>(null)
 
     const load = useCallback(async () => {
         try {
@@ -277,6 +278,11 @@ function SmsSettings() {
                 setSettings(data.settings)
                 setBundles(data.bundles.filter((b: Bundle) => b.is_active))
                 setDeleteIds([])
+                setGateway({
+                    customer: data.customerSmsGateway,
+                    platform: data.platformGateway,
+                    kingflexy: !!data.kingflexyConfigured,
+                })
             } else {
                 toast.error(data?.error || 'Failed to load settings')
             }
@@ -321,6 +327,28 @@ function SmsSettings() {
 
     return (
         <div className="space-y-4">
+            {gateway && (
+                <Card className={cn(gateway.customer !== 'kingflexy' && 'border-amber-400')}>
+                    <CardContent className="py-3 space-y-1 text-sm">
+                        <p>
+                            Customer SMS sends through <span className="font-bold capitalize">{gateway.customer}</span>
+                            <span className="text-muted-foreground"> (platform notifications: {gateway.platform})</span>
+                        </p>
+                        {gateway.customer !== 'kingflexy' && (
+                            <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
+                                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>
+                                    Shops cannot send under their own sender ID on this gateway — it rejects any sender
+                                    not registered on the ARHMS account (&quot;Sender ID is not approved&quot;). Set
+                                    KINGFLEXY_SMS_KEY (kf_sms_live_) and redeploy; Customer SMS then uses KingFlexy
+                                    automatically, whatever the gateway toggle says.
+                                </span>
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Service</CardTitle>

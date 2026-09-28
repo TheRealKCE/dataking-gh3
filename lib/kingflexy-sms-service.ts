@@ -63,6 +63,18 @@ function recordFailure() {
     }
 }
 
+/**
+ * Whether this deployment can send through KingFlexy at all.
+ *
+ * Customer SMS keys off this rather than the global gateway toggle: a shop
+ * sends under its OWN sender ID, and Moolre rejects any sender not registered
+ * on the platform's Moolre account (ASMS07), so per-shop senders can only ever
+ * work here.
+ */
+export function isKingFlexySmsConfigured(): boolean {
+    return KF_SMS_KEY.startsWith('kf_sms_live_')
+}
+
 interface KfResponse {
     ok: boolean
     status: number

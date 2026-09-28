@@ -10,7 +10,7 @@
  */
 
 import { sendSMS, normalizeGhanaPhone, getActiveSmsProvider } from '@/lib/sms-service'
-import { sendKingFlexyBulkSMS, KF_INLINE_RECIPIENTS } from '@/lib/kingflexy-sms-service'
+import { sendKingFlexyBulkSMS, isKingFlexySmsConfigured, KF_INLINE_RECIPIENTS } from '@/lib/kingflexy-sms-service'
 import { SUB_AGENTS_GROUP_ID } from '@/lib/sms/sms-rules'
 import { fetchAllRows } from '@/lib/supabase-pagination'
 
@@ -359,7 +359,12 @@ export async function dispatchCampaignBatch(db: any, campaignId: string, limit: 
     // KingFlexy takes the whole list in one call, so a 500-recipient tick is a
     // single request instead of 500. Their reply is per-campaign rather than
     // per-recipient, which is why a rejected batch fails as a batch.
-    if (await getActiveSmsProvider() === 'kingflexy') {
+    // KingFlexy whenever it is configured, whatever the global gateway toggle
+    // says. That toggle governs the platform's own notifications, which go out
+    // under one house sender ID; a shop's campaign goes out under the shop's
+    // name, and Moolre and Hubtel only accept senders registered on OUR account
+    // with them — every such send comes back "Sender ID is not approved".
+    if (isKingFlexySmsConfigured() || await getActiveSmsProvider() === 'kingflexy') {
         for (let i = 0; i < mine.length; i += KF_INLINE_RECIPIENTS) {
             const chunk = mine.slice(i, i + KF_INLINE_RECIPIENTS)
 

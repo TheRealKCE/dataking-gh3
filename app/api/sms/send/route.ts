@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { loadSmsContext, smsBlockReason, isCustomerSmsEnabled, SMS_DISABLED_MESSAGE } from '@/lib/sms/sms-purchase'
+import { isKingFlexySmsConfigured } from '@/lib/kingflexy-sms-service'
+import { getActiveSmsProvider } from '@/lib/sms-service'
 import {
     countSegments,
     getAllowedSenders,
@@ -130,6 +132,20 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 { error: 'That sender ID is not approved for your account', allowedSenders: allowed.map(s => s.sender) },
                 { status: 400 }
+            )
+        }
+
+        // Refuse a send that cannot possibly arrive, BEFORE any credits move.
+        // Only KingFlexy accepts a per-shop sender ID; on Moolre or Hubtel a
+        // name that is not registered on the platform's own account comes back
+        // "Sender ID is not approved" for every recipient. The credits would be
+        // refunded, but the owner would have watched a campaign fail for a
+        // reason they cannot act on.
+        if (senderEntry.type === 'own' && !isKingFlexySmsConfigured() && await getActiveSmsProvider() !== 'kingflexy') {
+            console.error('[CustomerSmsSend] Blocked: own sender ID with no KingFlexy gateway configured.')
+            return NextResponse.json(
+                { error: 'Sending under your own sender ID is not available right now. Please contact support.' },
+                { status: 503 }
             )
         }
 
