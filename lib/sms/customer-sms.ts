@@ -9,7 +9,8 @@
  * transactional notifications, this one is a metered product customers pay for.
  */
 
-import { sendSMS, normalizeGhanaPhone } from '@/lib/sms-service'
+import { sendSMS, normalizeGhanaPhone, getActiveSmsProvider } from '@/lib/sms-service'
+import { sendKingFlexyBulkSMS, KF_INLINE_RECIPIENTS } from '@/lib/kingflexy-sms-service'
 import { SUB_AGENTS_GROUP_ID } from '@/lib/sms/sms-rules'
 import { fetchAllRows } from '@/lib/supabase-pagination'
 
@@ -328,6 +329,72 @@ export async function dispatchCampaignBatch(db: any, campaignId: string, limit: 
     const mine = (claimed || []) as { id: string; recipient: string }[]
     let sent = 0
     let failed = 0
+
+    /**
+     * Gives back what the named messages cost and marks them failed.
+     *
+     * The owner paid up front for the whole list, so a message that never left
+     * has to be refunded — one credit per segment, p_purchased = false so a
+     * refund never inflates the lifetime "purchased" figure.
+     */
+    const failAndRefund = async (rows: { id: string }[], why: string) => {
+        if (!rows.length) return
+        await db.from('sms_messages').update({
+            status: 'failed',
+            error: why,
+            status_updated_at: new Date().toISOString(),
+        }).in('id', rows.map(r => r.id))
+
+        for (let i = 0; i < rows.length; i++) {
+            const { error } = await db.rpc('credit_sms_credits', {
+                p_account_id: campaign.account_id,
+                p_amount: campaign.segments || 1,
+                p_purchased: false,
+            })
+            if (error) console.error('[CustomerSMS] CRITICAL: credit refund failed for message', rows[i].id, error)
+        }
+    }
+
+    // ── BULK PROVIDER ────────────────────────────────────────────────────────
+    // KingFlexy takes the whole list in one call, so a 500-recipient tick is a
+    // single request instead of 500. Their reply is per-campaign rather than
+    // per-recipient, which is why a rejected batch fails as a batch.
+    if (await getActiveSmsProvider() === 'kingflexy') {
+        for (let i = 0; i < mine.length; i += KF_INLINE_RECIPIENTS) {
+            const chunk = mine.slice(i, i + KF_INLINE_RECIPIENTS)
+
+            const result = await sendKingFlexyBulkSMS({
+                message: campaign.message,
+                recipients: chunk.map(r => r.recipient),
+                sender: campaign.sender_used,
+                // Their idempotency key. Tied to our campaign and this chunk's
+                // first row, so a retried tick returns the original send rather
+                // than messaging everyone twice.
+                reference: `arhms_${campaignId}_${chunk[0].id}`.slice(0, 100),
+            })
+
+            if (!result.ok) {
+                failed += chunk.length
+                await failAndRefund(chunk, result.outOfCredits
+                    ? 'Sending is temporarily unavailable. You have not been charged.'
+                    : (result.error || 'Send failed'))
+                // Out of credits at the provider affects every remaining chunk
+                // too, so stop rather than burn through the whole queue.
+                if (result.outOfCredits) break
+                continue
+            }
+
+            sent += chunk.length
+            await db.from('sms_messages').update({
+                status: 'sent',
+                // Their campaign id, which the delivery webhook matches on.
+                provider_message_id: result.campaignId ?? null,
+                status_updated_at: new Date().toISOString(),
+            }).in('id', chunk.map(r => r.id))
+        }
+
+        return { sent, failed, remaining: await countQueued(db, campaignId) }
+    }
 
     for (let i = 0; i < mine.length; i += SEND_BATCH_SIZE) {
         const batch = mine.slice(i, i + SEND_BATCH_SIZE)

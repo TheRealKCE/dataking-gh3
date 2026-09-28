@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validateAdminAccess } from '@/lib/auth-utils'
-import { sendSenderIdApprovedSMS, sendSenderIdRejectedSMS } from '@/lib/sms-service'
+import { sendSenderIdApprovedSMS, sendSenderIdRejectedSMS, getActiveSmsProvider } from '@/lib/sms-service'
+import { fetchKingFlexySenders, fetchKingFlexyBalance } from '@/lib/kingflexy-sms-service'
 
 /**
  * Admin queue for Customer SMS sender IDs.
@@ -64,7 +65,32 @@ export async function GET(request: NextRequest) {
             counts[s] = count ?? 0
         }))
 
-        return NextResponse.json({ success: true, senders: data || [], counts })
+        // When KingFlexy is the gateway, a sender ID approved here still bounces
+        // unless it is ALSO registered on the platform's KingFlexy account. The
+        // reviewer sees that list rather than discovering it from failed sends.
+        let providerSenders: string[] | null = null
+        let providerBalance: number | null = null
+        let providerError: string | null = null
+
+        if (await getActiveSmsProvider() === 'kingflexy') {
+            const [senderList, balance] = await Promise.all([
+                fetchKingFlexySenders(),
+                fetchKingFlexyBalance(),
+            ])
+            providerSenders = senderList.ok ? senderList.senders.map(x => x.sender) : null
+            providerBalance = balance.ok ? (balance.credits ?? null) : null
+            providerError = senderList.ok ? null : (senderList.error || 'Could not reach KingFlexy')
+        }
+
+        return NextResponse.json({
+            success: true,
+            senders: data || [],
+            counts,
+            provider: await getActiveSmsProvider(),
+            providerSenders,
+            providerBalance,
+            providerError,
+        })
     } catch (error: any) {
         console.error('[AdminSmsSenders] GET error:', error)
         return NextResponse.json({ error: 'Failed to load sender IDs' }, { status: 500 })

@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase'
 import { sendHubtelSMS } from '@/lib/hubtel-sms-service'
+import { sendKingFlexySMS } from '@/lib/kingflexy-sms-service'
 
 // ============================================================
 // Moolre SMS Service — https://api.moolre.com
@@ -45,6 +46,10 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     // Determine active provider from admin_settings (falls back to 'moolre')
     const provider = await getActiveSmsProvider()
 
+    if (provider === 'kingflexy') {
+        return sendKingFlexySMS(options)
+    }
+
     if (provider === 'hubtel') {
         return sendHubtelSMS(options)
     }
@@ -56,11 +61,17 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 // PROVIDER ROUTING HELPER
 // ============================================================
 
+export type ActiveSmsProvider = 'kingflexy' | 'hubtel' | 'moolre'
+
 /**
  * Reads the active SMS provider from the admin_settings table.
- * Returns 'hubtel' | 'moolre'. Defaults to 'moolre' on any error.
+ * Defaults to 'moolre' on any error.
+ *
+ * Exported because Customer SMS branches on it before dispatching: KingFlexy
+ * takes a whole recipient list in one call, so a campaign there is a handful of
+ * requests rather than one per customer.
  */
-async function getActiveSmsProvider(): Promise<'hubtel' | 'moolre'> {
+export async function getActiveSmsProvider(): Promise<ActiveSmsProvider> {
     try {
         const supabase = createServerClient()
         const { data } = await supabase
@@ -68,7 +79,10 @@ async function getActiveSmsProvider(): Promise<'hubtel' | 'moolre'> {
             .select('value')
             .eq('key', 'active_sms_provider')
             .single()
-        if (data && (data as any).value === 'hubtel') return 'hubtel'
+        // The column is JSONB and older rows were written quoted, so a stored
+        // "kingflexy" and kingflexy must both match.
+        const value = String((data as any)?.value ?? '').replace(/^"+|"+$/g, '').trim().toLowerCase()
+        if (value === 'kingflexy' || value === 'hubtel' || value === 'moolre') return value
     } catch {
         // Silently fall back to moolre on DB error
     }

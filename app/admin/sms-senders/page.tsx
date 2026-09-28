@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2, MessageSquare, Plus, Trash2, Save, ExternalLink } from 'lucide-react'
+import { Loader2, MessageSquare, Plus, Trash2, Save, ExternalLink, AlertTriangle, Coins } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -96,6 +96,11 @@ function SenderQueue() {
     const [counts, setCounts] = useState<Record<string, number>>({})
     const [loading, setLoading] = useState(true)
     const [busyId, setBusyId] = useState<string | null>(null)
+    // Non-null only while KingFlexy is the gateway: the sender IDs it will
+    // actually accept, and what the platform has left to send with.
+    const [providerSenders, setProviderSenders] = useState<string[] | null>(null)
+    const [providerBalance, setProviderBalance] = useState<number | null>(null)
+    const [providerError, setProviderError] = useState<string | null>(null)
     const [rejecting, setRejecting] = useState<SenderRequest | null>(null)
     const [reason, setReason] = useState('')
 
@@ -104,7 +109,13 @@ function SenderQueue() {
         try {
             const res = await fetch(`/api/admin/sms-senders?status=${status}`, { cache: 'no-store' })
             const data = await res.json()
-            if (data?.success) { setRows(data.senders); setCounts(data.counts || {}) }
+            if (data?.success) {
+                setRows(data.senders)
+                setCounts(data.counts || {})
+                setProviderSenders(data.providerSenders ?? null)
+                setProviderBalance(data.providerBalance ?? null)
+                setProviderError(data.providerError ?? null)
+            }
             else toast.error(data?.error || 'Failed to load sender IDs')
         } catch {
             toast.error('Failed to load sender IDs')
@@ -146,6 +157,30 @@ function SenderQueue() {
 
     return (
         <div className="space-y-4">
+            {providerBalance !== null && (
+                <Card className={cn(providerBalance < 500 && 'border-amber-400')}>
+                    <CardContent className="py-3 flex items-center gap-2 text-sm">
+                        <Coins className="w-4 h-4 text-emerald-600" />
+                        <span className="font-semibold">{providerBalance.toLocaleString()}</span>
+                        <span className="text-muted-foreground">SMS credits left on the ARHMS KingFlexy account</span>
+                        {providerBalance < 500 && (
+                            <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                                — top up, or every shop&apos;s sends start failing
+                            </span>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {providerError && (
+                <Card className="border-amber-400">
+                    <CardContent className="py-3 flex items-center gap-2 text-sm">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span>Could not read the KingFlexy sender list: {providerError}</span>
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="flex flex-wrap gap-2">
                 {STATUS_TABS.map((t) => (
                     <button key={t.value} type="button" onClick={() => setStatus(t.value)}
@@ -169,6 +204,12 @@ function SenderQueue() {
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
                                     <p className="font-mono text-xl font-black">{row.sender}</p>
+                                    {providerSenders && !providerSenders.some(x => x.toLowerCase() === row.sender.toLowerCase()) && (
+                                        <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-amber-100 dark:bg-amber-950/40 px-2 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                            <AlertTriangle className="w-3.5 h-3.5" />
+                                            Not registered on the KingFlexy account — sends under it will be rejected
+                                        </p>
+                                    )}
                                     <p className="text-sm">{row.business_name || '—'}</p>
                                     <p className="text-xs text-muted-foreground">
                                         {row.account?.shop?.shop_name || 'No shop'} · {owner} · {user?.phone_number || 'no phone'}
