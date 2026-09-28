@@ -46,7 +46,7 @@ export default function AdminSettingsPage() {
     const [footerCopyrightText, setFooterCopyrightText] = useState('')
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
-    const [smsProvider, setSmsProvider] = useState<'moolre' | 'hubtel'>('moolre')
+    const [smsProvider, setSmsProvider] = useState<'moolre' | 'hubtel' | 'kingflexy'>('moolre')
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>('moolre')
     // Seeded with the USSD scope's own fallback, not Moolre — Moolre has no USSD
@@ -139,7 +139,8 @@ export default function AdminSettingsPage() {
             setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS TECHNOLOGIES`)
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
-            setSmsProvider(settingsMap.active_sms_provider === 'hubtel' ? 'hubtel' : 'moolre')
+            const activeSms = String(settingsMap.active_sms_provider || '').replace(/^"+|"+$/g, '')
+            setSmsProvider(activeSms === 'hubtel' || activeSms === 'kingflexy' ? activeSms : 'moolre')
             setWebPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_web, 'web'))
             setShopPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_shop, 'shop'))
             setUssdPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_ussd, 'ussd'))
@@ -740,7 +741,11 @@ export default function AdminSettingsPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>SMS Provider</CardTitle>
-                            <CardDescription>Select the SMS gateway for all system notifications. Changes take effect immediately.</CardDescription>
+                            <CardDescription>
+                                Select the SMS gateway for system notifications and Customer SMS. Changes take effect immediately.
+                                KingFlexy sends in bulk and reports per-recipient delivery; a shop&apos;s sender ID must also be
+                                registered on the ARHMS KingFlexy account or its sends are rejected.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -772,6 +777,18 @@ export default function AdminSettingsPage() {
                                         )}
                                     >
                                         Hubtel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSmsProvider('kingflexy')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            smsProvider === 'kingflexy'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        KingFlexy
                                     </button>
                                 </div>
                             </div>
