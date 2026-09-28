@@ -213,6 +213,7 @@ export interface Database {
                     agentportal_reference: string | null
                     netpulse_reference: string | null
                     hendylinks_reference: string | null
+                    bundleportal_reference: string | null
                     error_message: string | null
                     download_batch_id: string | null
                     shop_order_id: string | null
@@ -235,6 +236,7 @@ export interface Database {
                     agentportal_reference?: string | null
                     netpulse_reference?: string | null
                     hendylinks_reference?: string | null
+                    bundleportal_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null
@@ -249,6 +251,7 @@ export interface Database {
                     agentportal_reference?: string | null
                     netpulse_reference?: string | null
                     hendylinks_reference?: string | null
+                    bundleportal_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null

@@ -67,6 +67,7 @@ interface FulfillmentSettings {
     agentportal_networks: Record<string, boolean>
     netpulse_networks: Record<string, boolean>
     hendylinks_networks: Record<string, boolean>
+    bundleportal_networks: Record<string, boolean>
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -82,6 +83,7 @@ const SUPPLIER_KEYS = {
     agentportal: 'agentportal_networks',
     netpulse: 'netpulse_networks',
     hendylinks: 'hendylinks_networks',
+    bundleportal: 'bundleportal_networks',
 } as const
 
 type SupplierId = keyof typeof SUPPLIER_KEYS
@@ -123,7 +125,8 @@ export default function FulfillmentPage() {
         eazydata_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         agentportal_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         netpulse_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
-        hendylinks_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
+        hendylinks_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        bundleportal_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
@@ -135,6 +138,7 @@ export default function FulfillmentPage() {
     const [agentportalBalance, setAgentportalBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [netpulseBalance, setNetpulseBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [hendylinksBalance, setHendylinksBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [bundleportalBalance, setBundleportalBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
     // Per-supplier failure reason, keyed by the API prefix ('agentportal', ...; 'dakazina'
     // for the unprefixed one). Set when a supplier's balance call failed, so the card can
@@ -164,6 +168,10 @@ export default function FulfillmentPage() {
     // Sync HendyLinks Status state
     const [isSyncingHendyLinks, setIsSyncingHendyLinks] = useState(false)
     const [hendylinksSyncCooldown, setHendylinksSyncCooldown] = useState(false)
+
+    // Sync BundlePortal Status state
+    const [isSyncingBundlePortal, setIsSyncingBundlePortal] = useState(false)
+    const [bundleportalSyncCooldown, setBundleportalSyncCooldown] = useState(false)
 
     // Cron Settings state
     const [cronRefulfillEnabled, setCronRefulfillEnabled] = useState(false)
@@ -289,6 +297,7 @@ export default function FulfillmentPage() {
             const dbAgentportalNetworks: Record<string, boolean> = dbFulfillmentSettings.agentportal_networks || {}
             const dbNetpulseNetworks: Record<string, boolean> = dbFulfillmentSettings.netpulse_networks || {}
             const dbHendylinksNetworks: Record<string, boolean> = dbFulfillmentSettings.hendylinks_networks || {}
+            const dbBundleportalNetworks: Record<string, boolean> = dbFulfillmentSettings.bundleportal_networks || {}
 
             setSettings({
                 is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
@@ -319,6 +328,10 @@ export default function FulfillmentPage() {
                 hendylinks_networks: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: dbHendylinksNetworks[n] === true
+                }), {} as Record<string, boolean>),
+                bundleportal_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbBundleportalNetworks[n] === true
                 }), {} as Record<string, boolean>)
             })
 
@@ -380,7 +393,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks, netpulse_networks: newSettings.netpulse_networks, hendylinks_networks: newSettings.hendylinks_networks }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks, netpulse_networks: newSettings.netpulse_networks, hendylinks_networks: newSettings.hendylinks_networks, bundleportal_networks: newSettings.bundleportal_networks }) }
             ]
 
             const { error } = await (supabase
@@ -577,6 +590,7 @@ export default function FulfillmentPage() {
             apply('agentportal', setAgentportalBalance)
             apply('netpulse', setNetpulseBalance)
             apply('hendylinks', setHendylinksBalance)
+            apply('bundleportal', setBundleportalBalance)
 
             setBalanceErrors(errors)
             const failed = Object.keys(errors)
@@ -678,6 +692,29 @@ export default function FulfillmentPage() {
             setIsSyncingHendyLinks(false)
             setHendylinksSyncCooldown(true)
             setTimeout(() => setHendylinksSyncCooldown(false), 30000)
+        }
+    }
+
+    const handleSyncBundlePortal = async () => {
+        if (isSyncingBundlePortal || bundleportalSyncCooldown) return
+        setIsSyncingBundlePortal(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-bundleportal', {
+                method: 'POST',
+            })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed`)
+                await fetchOrders(true)
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncingBundlePortal(false)
+            setBundleportalSyncCooldown(true)
+            setTimeout(() => setBundleportalSyncCooldown(false), 30000)
         }
     }
 
@@ -1055,6 +1092,34 @@ export default function FulfillmentPage() {
                     </CardContent>
                 </Card>
 
+                <Card className="bg-gradient-to-br from-rose-600 to-pink-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">BundlePortal Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {renderBalance('bundleportal', bundleportalBalance)}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-lg">
                     <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
@@ -1218,6 +1283,34 @@ export default function FulfillmentPage() {
                                 : hendylinksSyncCooldown
                                     ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
                                     : <><RefreshCw className="w-4 h-4 mr-2" />Sync HendyLinks Status</>
+                            }
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-rose-700 to-pink-900 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">BundlePortal Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Their webhook is never retried — this catches missed deliveries</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncBundlePortal}
+                            disabled={isSyncingBundlePortal || bundleportalSyncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncingBundlePortal
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : bundleportalSyncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync BundlePortal Status</>
                             }
                         </Button>
                     </CardContent>
@@ -1487,6 +1580,44 @@ export default function FulfillmentPage() {
                                         <div className={`w-1.5 h-1.5 rounded-full ${settings.hendylinks_networks[net] ? 'bg-teal-500' : 'bg-gray-300'}`} />
                                         <span className="font-bold text-teal-600 dark:text-teal-400">HendyLinks</span>
                                         {settings.hendylinks_networks[net] && <span className="text-teal-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
+                {/* BundlePortal Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-rose-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-rose-700 dark:text-rose-400">BundlePortal Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables others for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`bundleportal-${net}`} className={`border-l-4 transition-colors ${settings.bundleportal_networks[net] ? 'border-l-rose-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.bundleportal_networks[net] ? 'text-rose-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`bp-toggle-${net}`}
+                                            variant={settings.bundleportal_networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.bundleportal_networks[net] ? 'border-rose-500 text-rose-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'bundleportal')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.bundleportal_networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.bundleportal_networks[net] ? 'bg-rose-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-rose-600 dark:text-rose-400">BundlePortal</span>
+                                        {settings.bundleportal_networks[net] && <span className="text-rose-500 font-semibold">· Active</span>}
                                     </div>
                                 </CardContent>
                             </Card>

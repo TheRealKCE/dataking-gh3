@@ -626,7 +626,8 @@ async function triggerShopFulfillment(
             agentportal_networks: Record<string, boolean>
             netpulse_networks: Record<string, boolean>
             hendylinks_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {}, netpulse_networks: {}, hendylinks_networks: {} }
+            bundleportal_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {}, netpulse_networks: {}, hendylinks_networks: {}, bundleportal_networks: {} }
 
         try {
             if (settingsMap.fulfillment_settings) {
@@ -640,6 +641,7 @@ async function triggerShopFulfillment(
                 fulfillmentSettings.agentportal_networks = parsed.agentportal_networks || {}
                 fulfillmentSettings.netpulse_networks = parsed.netpulse_networks || {}
                 fulfillmentSettings.hendylinks_networks = parsed.hendylinks_networks || {}
+                fulfillmentSettings.bundleportal_networks = parsed.bundleportal_networks || {}
             }
         } catch (e) { /* ignore parse failure — defaults to empty */ }
 
@@ -650,9 +652,10 @@ async function triggerShopFulfillment(
         const isAgentPortalEnabled = fulfillmentSettings.agentportal_networks[network] === true
         const isNetPulseEnabled = fulfillmentSettings.netpulse_networks[network] === true
         const isHendyLinksEnabled = fulfillmentSettings.hendylinks_networks[network] === true
+        const isBundlePortalEnabled = fulfillmentSettings.bundleportal_networks[network] === true
 
         // ── 3. FULFILLMENT_CONFLICT Guard (absolute last line of defense) ──
-        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled, isHendyLinksEnabled].filter(Boolean).length
+        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled, isHendyLinksEnabled, isBundlePortalEnabled].filter(Boolean).length
         if (activeCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
@@ -664,14 +667,14 @@ async function triggerShopFulfillment(
         }
 
         // ── 4. No active supplier ──────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && !isBundlePortalEnabled) {
             console.log(`[Shop Order Processor] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
             return
         }
 
         // ── 5. Determine supplier and stamp fulfilled_by ATOMICALLY first ──
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : isHendyLinksEnabled ? 'hendylinks' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : isHendyLinksEnabled ? 'hendylinks' : isBundlePortalEnabled ? 'bundleportal' : 'datakazina'
         await db.from('shop_orders').update({ fulfilled_by: supplierLabel }).eq('id', orderId)
         console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
@@ -698,6 +701,9 @@ async function triggerShopFulfillment(
             } else if (isHendyLinksEnabled) {
                 const { fulfillOrder: hlFulfill } = await import('./hendylinks-service')
                 result = await hlFulfill(network, phone, extra.size || '', orderId)
+            } else if (isBundlePortalEnabled) {
+                const { fulfillOrder: bpFulfill } = await import('./bundleportal-service')
+                result = await bpFulfill(network, phone, extra.size || '', orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
                 result = await dkFulfill(network, phone, extra.size || '', orderId)
@@ -738,6 +744,9 @@ async function triggerShopFulfillment(
             if (isHendyLinksEnabled && result.transactionId) {
                 updatePayload.hendylinks_reference = result.transactionId
             }
+            if (isBundlePortalEnabled && result.transactionId) {
+                updatePayload.bundleportal_reference = result.transactionId
+            }
 
             // Both writes below were previously unchecked: a missing supplier reference
             // column failed them silently and the order stayed 'pending' even though the
@@ -775,6 +784,10 @@ async function triggerShopFulfillment(
                 ordersUpdate.hendylinks_reference = result.transactionId
                 ordersUpdate.fulfillment_method = 'hendylinks'
             }
+            if (isBundlePortalEnabled && result.transactionId) {
+                ordersUpdate.bundleportal_reference = result.transactionId
+                ordersUpdate.fulfillment_method = 'bundleportal'
+            }
             await updateOrderWithColumnFallback(
                 db,
                 'orders',
@@ -784,7 +797,7 @@ async function triggerShopFulfillment(
                 '[Shop Order Processor]'
             )
 
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.webhookRef || result.transactionId || result.reference)) {
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && !isBundlePortalEnabled && (result.webhookRef || result.transactionId || result.reference)) {
                 // webhookRef FIRST — see the matching note in order-fulfillment-dispatcher.
                 const dakazinaRef = result.webhookRef || result.transactionId || result.reference
 

@@ -62,7 +62,8 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             agentportal_networks: Record<string, boolean>
             netpulse_networks: Record<string, boolean>
             hendylinks_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {}, netpulse_networks: {}, hendylinks_networks: {} }
+            bundleportal_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {}, netpulse_networks: {}, hendylinks_networks: {}, bundleportal_networks: {} }
         try {
             if (settingsMap.fulfillment_settings) {
                 const parsed = typeof settingsMap.fulfillment_settings === 'string'
@@ -75,6 +76,7 @@ export async function triggerFulfillment(orderId: string, network: string, user:
                 fulfillmentSettings.agentportal_networks = parsed.agentportal_networks || {}
                 fulfillmentSettings.netpulse_networks = parsed.netpulse_networks || {}
                 fulfillmentSettings.hendylinks_networks = parsed.hendylinks_networks || {}
+                fulfillmentSettings.bundleportal_networks = parsed.bundleportal_networks || {}
             }
         } catch (e) {
             console.error('[Fulfillment] Failed to parse fulfillment_settings:', e)
@@ -87,9 +89,10 @@ export async function triggerFulfillment(orderId: string, network: string, user:
         const isAgentPortalEnabled = fulfillmentSettings.agentportal_networks[network] === true
         const isNetPulseEnabled = fulfillmentSettings.netpulse_networks[network] === true
         const isHendyLinksEnabled = fulfillmentSettings.hendylinks_networks[network] === true
+        const isBundlePortalEnabled = fulfillmentSettings.bundleportal_networks[network] === true
 
         // ── Conflict Guard ─────────────────────────────────────────────────
-        const activeSupplierCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled, isHendyLinksEnabled].filter(Boolean).length
+        const activeSupplierCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled, isHendyLinksEnabled, isBundlePortalEnabled].filter(Boolean).length
         if (activeSupplierCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
@@ -100,14 +103,14 @@ export async function triggerFulfillment(orderId: string, network: string, user:
         }
 
         // ── No Supplier Guard ──────────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && !isBundlePortalEnabled) {
             console.log(`[Fulfillment] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
                 .catch(err => console.error('[Fulfillment] No-supplier alert failed:', err))
             return
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : isHendyLinksEnabled ? 'hendylinks' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : isHendyLinksEnabled ? 'hendylinks' : isBundlePortalEnabled ? 'bundleportal' : 'datakazina'
         console.log(`[Fulfillment] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
         // ── Idempotency check ──────────────────────────────────────────────
@@ -144,6 +147,9 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             } else if (isHendyLinksEnabled) {
                 const { fulfillOrder: hlFulfill } = await import('@/lib/hendylinks-service')
                 result = await hlFulfill(network, (order as any).phone_number, (order as any).size, orderId)
+            } else if (isBundlePortalEnabled) {
+                const { fulfillOrder: bpFulfill } = await import('@/lib/bundleportal-service')
+                result = await bpFulfill(network, (order as any).phone_number, (order as any).size, orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('@/lib/fulfillment-service')
                 result = await dkFulfill(network, (order as any).phone_number, (order as any).size, orderId)
@@ -180,7 +186,10 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             if (isHendyLinksEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.hendylinks_reference = result.transactionId || result.reference
             }
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.webhookRef || result.transactionId || result.reference)) {
+            if (isBundlePortalEnabled && (result.transactionId || result.reference)) {
+                ordersUpdate.bundleportal_reference = result.transactionId || result.reference
+            }
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && !isBundlePortalEnabled && (result.webhookRef || result.transactionId || result.reference)) {
                 // webhookRef FIRST: it is the only identifier Dakazina echoes back on an
                 // event, and their status endpoint 404s, so the webhook is the sole way
                 // one of these orders can learn it was delivered.

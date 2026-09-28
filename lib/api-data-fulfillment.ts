@@ -40,6 +40,7 @@ const SUPPLIERS: ReadonlyArray<{
     { flag: 'agentportal_networks', label: 'agentportal', refColumn: 'agentportal_reference', load: () => import('@/lib/agentportal-service')  },
     { flag: 'netpulse_networks',    label: 'netpulse',    refColumn: 'netpulse_reference',    load: () => import('@/lib/netpulse-service')     },
     { flag: 'hendylinks_networks',  label: 'hendylinks',  refColumn: 'hendylinks_reference',  load: () => import('@/lib/hendylinks-service')   },
+    { flag: 'bundleportal_networks', label: 'bundleportal', refColumn: 'bundleportal_reference', load: () => import('@/lib/bundleportal-service') },
 ]
 
 export interface FulfillApiDataOrderParams {
