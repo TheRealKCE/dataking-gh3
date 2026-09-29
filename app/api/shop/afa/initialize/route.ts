@@ -265,8 +265,14 @@ export async function POST(request: NextRequest) {
 
             // ── PAYSTACK BRANCH ───────────────────────────────────────────────
             if (provider === 'paystack') {
-                const guestEmail = validEmail || `guest-${cleanPhone}@checkout.arhmsgh.com`
+                const guestEmail = validEmail || `guest-${cleanPhone}@checkout.dataking.qzz.io`
                 const amountInPesewas = Math.round(totalAmount * 100)
+
+                const requestOrigin = request.headers.get('origin') ||
+                    (request.headers.get('x-forwarded-host') ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}` : null) ||
+                    (request.headers.get('host') ? `https://${request.headers.get('host')}` : null) ||
+                    process.env.NEXT_PUBLIC_APP_URL ||
+                    'https://www.dataking.qzz.io'
 
                 const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
                     method: 'POST',
@@ -278,7 +284,7 @@ export async function POST(request: NextRequest) {
                         email: guestEmail,
                         amount: amountInPesewas,
                         reference: referenceCode,
-                        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}/success?reference=${referenceCode}`,
+                        callback_url: `${requestOrigin.replace(/\/$/, '')}/shop/${shopSlug}/success?reference=${referenceCode}`,
                         metadata: {
                             type: 'afa_registration',
                             shop_slug: shopSlug,
