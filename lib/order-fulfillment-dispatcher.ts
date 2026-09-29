@@ -235,14 +235,24 @@ export async function triggerFulfillment(orderId: string, network: string, user:
                     network: (order as any).network,
                     size: (order as any).size,
                 }).catch(err => console.error('[Fulfillment] AT instant SMS failed:', err))
-            } else if (/MTN/i.test(network)) {
-                // MTN is with the supplier now. Confirm receipt once, without quoting a
-                // delivery time — the retry cron must never re-send this.
+            } else {
+                // EVERY other network — the order is with the supplier now, so confirm
+                // receipt once without quoting a delivery time. The retry cron must
+                // never re-send this.
+                //
+                // Was `else if (/MTN/i.test(network))`, which silently sent nothing for
+                // Telecel (no branch at all) and nothing for AirtelTigo whenever
+                // AgentPortal was not the active supplier — which is the case now that
+                // Dakazina fulfils. Only MTN buyers ever got a message.
+                //
+                // sendMtnOrderReceivedSMS is network-agnostic despite the name: it
+                // interpolates details.network and says only "received and is being
+                // processed".
                 const { sendMtnOrderReceivedSMS } = await import('@/lib/sms-service')
                 await sendMtnOrderReceivedSMS((order as any).phone_number, {
                     network: (order as any).network,
                     size: (order as any).size,
-                }).catch(err => console.error('[Fulfillment] MTN order-received SMS failed:', err))
+                }).catch(err => console.error('[Fulfillment] order-received SMS failed:', err))
             }
         } else {
             // Failure — keep order as pending (do not update orders table status)
