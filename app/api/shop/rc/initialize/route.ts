@@ -489,12 +489,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: moolreResponse.error || 'Payment failed' }, { status: 500 })
         }
 
-        if (moolreResponse.status === '200_OTP_REQ') {
+        if (moolreResponse.status === '200_OTP_REQ' || (!otpCode && moolreResponse.success)) {
             return NextResponse.json({
                 success: true,
                 otpRequired: true,
                 reference: existingRef,
-                message: 'Invalid OTP or OTP expired. Please try again.',
+                message: otpCode
+                    ? 'Invalid OTP or OTP expired. Please try again.'
+                    : 'OTP is required to complete this payment. Please enter the code sent to your phone.',
             })
         }
 

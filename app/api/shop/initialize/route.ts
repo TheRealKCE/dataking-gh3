@@ -538,7 +538,7 @@ export async function POST(request: NextRequest) {
             console.log('[ShopInit] OTP verified successfully. Sending follow-up payment request.')
             moolreResponse = await initiatePayment({
                 amount: totalAmount / 100,
-                payerPhone: cleanPhone,
+                payerPhone: payerClean,
                 channel: channelId,
                 externalRef: shopRef,
             })
@@ -548,7 +548,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: moolreResponse.error || 'Payment initialization failed' }, { status: 500 })
         }
 
-        if (moolreResponse.status === '200_OTP_REQ') {
+        if (moolreResponse.status === '200_OTP_REQ' || (!otpCode && moolreResponse.success)) {
             if (!existingRef) {
                 await saveShopMeta(shopRef, fullMetadata)
             }
@@ -571,7 +571,7 @@ export async function POST(request: NextRequest) {
             console.error('[ShopInit] could not record duplicate-click guard:', e)
         }
 
-        return NextResponse.json({ success: true, gateway: 'moolre', reference: shopRef, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
+        return NextResponse.json({ success: true, gateway: 'moolre', reference: shopRef, otpRequired: false, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
     } catch (error) {
         console.error('[Shop Initialize] Error:', error)
         // Order metadata lives in Redis, so an exhausted quota or an outage stops

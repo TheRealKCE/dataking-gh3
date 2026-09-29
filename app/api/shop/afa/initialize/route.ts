@@ -401,12 +401,12 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: moolreResponse.error || 'Payment initialization failed' }, { status: 500 })
             }
 
-            if (moolreResponse.status === '200_OTP_REQ') {
+            if (moolreResponse.status === '200_OTP_REQ' || moolreResponse.success) {
                 return NextResponse.json({
                     success: true,
                     otpRequired: true,
                     reference: referenceCode,
-                    message: 'OTP required. Please enter the code sent to your phone.',
+                    message: 'OTP is required to complete this payment. Please enter the code sent to your phone.',
                 })
             }
 
