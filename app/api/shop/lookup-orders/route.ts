@@ -55,18 +55,47 @@ export async function GET(req: NextRequest) {
             })
         }
 
-        const { data, error } = await supabaseAdmin
-            .rpc('get_shop_order_by_phone_reference', {
-                phone_number: cleanPhone,
-                order_reference: cleanReference,
-            })
+        // Queried directly rather than through get_shop_order_by_phone_reference: that
+        // RPC started erroring in production (every lookup 500'd), and this client is
+        // service-role anyway, so the security-definer function bought nothing here.
+        const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+        const { data: shopOrders, error } = await supabaseAdmin
+            .from('shop_orders')
+            .select('id, network, package_size, selling_price, status, created_at, shop_id')
+            .eq('guest_phone', cleanPhone)
+            .eq('paystack_reference', cleanReference)
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(1)
 
         if (error) {
-            console.error('[ShopOrdersLookup] RPC error:', error)
+            console.error('[ShopOrdersLookup] shop_orders query error:', error)
             return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
         }
 
-        return NextResponse.json({ orders: data || [] }, {
+        const order = shopOrders?.[0]
+        if (!order) {
+            return NextResponse.json({ orders: [] }, {
+                headers: { 'Cache-Control': 'private, max-age=600' }
+            })
+        }
+
+        // Both extras are best-effort: a missing shop or mirrored orders row (fulfillment
+        // may not have created it yet) must not drop the order from the tracker.
+        const [{ data: shop }, { data: mirrored }] = await Promise.all([
+            supabaseAdmin.from('shop_profiles').select('shop_name, shop_slug').eq('id', order.shop_id).maybeSingle(),
+            supabaseAdmin.from('orders').select('supplier_status').eq('shop_order_id', order.id).limit(1),
+        ])
+
+        const { shop_id: _shopId, ...rest } = order
+        const data = [{
+            ...rest,
+            supplier_status: mirrored?.[0]?.supplier_status ?? null,
+            shop_name: shop?.shop_name ?? null,
+            shop_slug: shop?.shop_slug ?? null,
+        }]
+
+        return NextResponse.json({ orders: data }, {
             headers: {
                 'Cache-Control': 'private, max-age=600'
             }
