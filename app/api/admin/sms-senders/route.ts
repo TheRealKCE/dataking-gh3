@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         let providerBalance: number | null = null
         let providerError: string | null = null
 
-        if (await getActiveSmsProvider() === 'kingflexy') {
+        if (await getActiveSmsProvider('storefront') === 'kingflexy') {
             const [senderList, balance] = await Promise.all([
                 fetchKingFlexySenders(),
                 fetchKingFlexyBalance(),
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
             success: true,
             senders: data || [],
             counts,
-            provider: await getActiveSmsProvider(),
+            provider: await getActiveSmsProvider('storefront'),
             providerSenders,
             providerBalance,
             providerError,

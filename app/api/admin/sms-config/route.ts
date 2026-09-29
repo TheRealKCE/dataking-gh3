@@ -18,6 +18,8 @@ const SETTING_KEYS = [
     // the nav through the public_admin_settings allowlist view, which a new key
     // is not in, so the toggle would save and never hide anything.
     'sms_customer_enabled',
+    // The storefront gateway, split from the platform's own in 20260929000000.
+    'active_sms_provider_storefront',
     'sms_pool_senders',
     'sms_inline_send_max',
     SMS_PROVIDER_KEY,
@@ -55,8 +57,8 @@ export async function GET(request: NextRequest) {
             settings,
             bundles: bundles || [],
             kingflexyConfigured,
-            platformGateway: await getActiveSmsProvider(),
-            customerSmsGateway: kingflexyConfigured ? 'kingflexy' : await getActiveSmsProvider(),
+            platformGateway: await getActiveSmsProvider('main'),
+            customerSmsGateway: await getActiveSmsProvider('storefront'),
         })
     } catch (error: any) {
         console.error('[AdminSmsConfig] GET error:', error)

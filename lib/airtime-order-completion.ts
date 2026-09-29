@@ -161,8 +161,29 @@ export async function finalizeAirtimeOrder(
     }).catch(() => {})
 
     if (status === 'completed') {
-        sendAirtimeCompletedSMS(existing.beneficiary_phone, amount)
-            .catch(err => console.error('[AirtimeCompletion] Completed SMS failed:', err))
+        // A storefront top-up is confirmed by the SHOP, under its own sender ID
+        // and from its own SMS credits — the buyer dealt with that shop, not with
+        // ARHMS. A shop that has not switched it on sends nothing; the platform no
+        // longer pays for a message advertising someone else's storefront.
+        //
+        // Main-site airtime is unchanged: it stays ARHMS-branded and platform-paid.
+        if (existing.shop_id) {
+            import('@/lib/sms/order-confirmations')
+                .then(({ sendShopOrderConfirmation }) => sendShopOrderConfirmation(supabase, {
+                    shopId: existing.shop_id,
+                    orderId: existing.id,
+                    kind: 'airtime',
+                    phone: existing.beneficiary_phone,
+                    details: { network: existing.network, amount },
+                }))
+                .then(outcome => {
+                    if (!outcome.sent) console.log(`[AirtimeCompletion] No shop SMS for ${existing.reference_code}: ${outcome.skipped}`)
+                })
+                .catch(err => console.error('[AirtimeCompletion] Shop SMS failed:', err))
+        } else {
+            sendAirtimeCompletedSMS(existing.beneficiary_phone, amount)
+                .catch(err => console.error('[AirtimeCompletion] Completed SMS failed:', err))
+        }
     }
 
     return { success: true, order: existing }

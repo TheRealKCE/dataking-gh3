@@ -19,6 +19,15 @@ export async function GET() {
         const enabled = isCustomerSmsEnabled(settingsMap)
         const blockedReason = enabled ? smsBlockReason(shop, sub) : SMS_DISABLED_MESSAGE
 
+        // loadSmsContext selects a fixed column list, so the toggles are read here.
+        const { data: toggles } = await supabaseAdmin
+            .from('sms_accounts')
+            .select('order_sms_data_enabled, order_sms_airtime_enabled')
+            .eq('id', account.id)
+            .maybeSingle()
+
+        Object.assign(account as any, toggles || {})
+
         const { data: senderRows } = await supabaseAdmin
             .from('sms_sender_ids')
             .select('id, sender, status, rejection_reason, is_default, created_at')
@@ -50,6 +59,10 @@ export async function GET() {
             portal,
             role,
             unlockPrice,
+            orderSms: {
+                data: !!(account as any).order_sms_data_enabled,
+                airtime: !!(account as any).order_sms_airtime_enabled,
+            },
             account: {
                 status: account.status,
                 credits: account.credits,
@@ -63,5 +76,60 @@ export async function GET() {
     } catch (error: any) {
         console.error('[SmsAccount] GET error:', error)
         return NextResponse.json({ error: 'Failed to load your SMS account' }, { status: 500 })
+    }
+}
+
+/**
+ * Switches the shop's order confirmation SMS on or off.
+ *
+ * body: { data?: boolean, airtime?: boolean }
+ */
+export async function PATCH(request: Request) {
+    try {
+        const ctx = await loadSmsContext()
+        if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
+
+        const { supabaseAdmin, account } = ctx
+
+        if (account.status !== 'active') {
+            return NextResponse.json({ error: 'Unlock Customer SMS before switching order confirmations on' }, { status: 403 })
+        }
+
+        const body: any = await request.json().catch(() => ({}))
+        const patch: Record<string, any> = {}
+        if (typeof body.data === 'boolean') patch.order_sms_data_enabled = body.data
+        if (typeof body.airtime === 'boolean') patch.order_sms_airtime_enabled = body.airtime
+
+        if (!Object.keys(patch).length) {
+            return NextResponse.json({ error: 'Nothing to change' }, { status: 400 })
+        }
+
+        // Switching ON without an approved sender would look like it worked and
+        // then silently send nothing, so it is refused with the reason.
+        if (patch.order_sms_data_enabled || patch.order_sms_airtime_enabled) {
+            const allowed = await getAllowedSenders(supabaseAdmin, account.id)
+            if (!allowed.some(s => s.type === 'own')) {
+                return NextResponse.json(
+                    { error: 'You need an approved sender ID before your shop can send order confirmations' },
+                    { status: 400 }
+                )
+            }
+        }
+
+        patch.updated_at = new Date().toISOString()
+
+        const { error } = await (supabaseAdmin.from('sms_accounts') as any)
+            .update(patch)
+            .eq('id', account.id)
+
+        if (error) {
+            console.error('[SmsAccount] PATCH failed:', error)
+            return NextResponse.json({ error: 'Could not save that setting' }, { status: 500 })
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (error: any) {
+        console.error('[SmsAccount] PATCH error:', error)
+        return NextResponse.json({ error: 'Failed to update your settings' }, { status: 500 })
     }
 }

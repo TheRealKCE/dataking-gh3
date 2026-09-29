@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import SubAgentInviteCard from '@/components/shop/sub-agent-invite-card'
+import { OrderSmsBanner } from '@/components/sms/order-sms-banner'
 
 interface ShopProfile {
     id: string
@@ -525,6 +526,9 @@ export default function ShopOverviewPage() {
                     </div>
                 )
             })()}
+
+            {/* --- ORDER SMS NUDGE --- */}
+            <OrderSmsBanner href="/dashboard/shop/sms?tab=orders" />
 
             {/* --- RECRUIT SUB-AGENTS --- */}
             {shop.approval_status === 'approved' && !(isSubAgent && subAgentRecruitBlocked) && (

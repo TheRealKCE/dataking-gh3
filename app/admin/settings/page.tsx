@@ -47,6 +47,9 @@ export default function AdminSettingsPage() {
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
     const [smsProvider, setSmsProvider] = useState<'moolre' | 'hubtel' | 'kingflexy'>('moolre')
+    // Storefront SMS routes separately: a shop sends under its OWN sender ID, which
+    // only KingFlexy accepts. The platform's own notifications have no such need.
+    const [storefrontSmsProvider, setStorefrontSmsProvider] = useState<'moolre' | 'hubtel' | 'kingflexy'>('kingflexy')
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>('moolre')
     // Seeded with the USSD scope's own fallback, not Moolre — Moolre has no USSD
@@ -141,6 +144,8 @@ export default function AdminSettingsPage() {
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
             const activeSms = String(settingsMap.active_sms_provider || '').replace(/^"+|"+$/g, '')
             setSmsProvider(activeSms === 'hubtel' || activeSms === 'kingflexy' ? activeSms : 'moolre')
+            const storefrontSms = String(settingsMap.active_sms_provider_storefront || '').replace(/^"+|"+$/g, '')
+            setStorefrontSmsProvider(storefrontSms === 'hubtel' || storefrontSms === 'moolre' ? storefrontSms : 'kingflexy')
             setWebPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_web, 'web'))
             setShopPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_shop, 'shop'))
             setUssdPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_ussd, 'ussd'))
@@ -213,6 +218,7 @@ export default function AdminSettingsPage() {
                 { key: 'footer_branding_text', value: footerBrandingText },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 { key: 'active_sms_provider', value: smsProvider },
+                { key: 'active_sms_provider_storefront', value: storefrontSmsProvider },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
                 { key: 'active_payment_provider_ussd', value: ussdPaymentProvider },
@@ -742,56 +748,69 @@ export default function AdminSettingsPage() {
                         <CardHeader>
                             <CardTitle>SMS Provider</CardTitle>
                             <CardDescription>
-                                Select the SMS gateway for system notifications and Customer SMS. Changes take effect immediately.
-                                KingFlexy sends in bulk and reports per-recipient delivery; a shop&apos;s sender ID must also be
-                                registered on the ARHMS KingFlexy account or its sends are rejected.
+                                The main site and the storefronts route separately. Changes take effect immediately.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="flex items-center justify-between p-4 border rounded-lg">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base">Active SMS Gateway</Label>
-                                    <p className="text-sm text-muted-foreground">Order confirmations, wallet top-ups, upgrades, etc.</p>
+                            {([
+                                {
+                                    key: 'main' as const,
+                                    label: 'Main site',
+                                    hint: 'OTPs, wallet top-ups, upgrades and main-site order SMS — all under the ARHMS sender.',
+                                    value: smsProvider,
+                                    set: setSmsProvider,
+                                    warn: null as string | null,
+                                },
+                                {
+                                    key: 'storefront' as const,
+                                    label: 'Storefronts',
+                                    hint: 'Shop campaigns and shop order confirmations, sent under each shop&apos;s own sender ID.',
+                                    value: storefrontSmsProvider,
+                                    set: setStorefrontSmsProvider,
+                                    // Moolre and Hubtel only accept senders registered on the ARHMS
+                                    // account, so a per-shop sender there fails for every recipient.
+                                    warn: storefrontSmsProvider !== 'kingflexy'
+                                        ? 'Shops cannot send under their own sender ID on this gateway — their sends will be refused.'
+                                        : 'Each shop&apos;s sender ID must also be registered on the ARHMS KingFlexy account.',
+                                },
+                            ]).map((row) => (
+                                <div key={row.key} className="p-4 border rounded-lg space-y-2 mb-3 last:mb-0">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="space-y-0.5">
+                                            <Label className="text-base">{row.label}</Label>
+                                            <p className="text-sm text-muted-foreground">{row.hint}</p>
+                                        </div>
+                                        <div className="flex rounded-lg border overflow-hidden shrink-0">
+                                            {(['moolre', 'hubtel', 'kingflexy'] as const).map((provider, i) => (
+                                                <button
+                                                    key={provider}
+                                                    type="button"
+                                                    onClick={() => row.set(provider)}
+                                                    className={cn(
+                                                        'px-4 py-2 text-sm font-medium transition-colors capitalize',
+                                                        i > 0 && 'border-l',
+                                                        row.value === provider
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-background hover:bg-muted text-foreground'
+                                                    )}
+                                                >
+                                                    {provider === 'kingflexy' ? 'KingFlexy' : provider}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {row.warn && (
+                                        <p className={cn(
+                                            'text-xs',
+                                            row.key === 'storefront' && storefrontSmsProvider !== 'kingflexy'
+                                                ? 'text-amber-600 font-medium'
+                                                : 'text-muted-foreground'
+                                        )}>
+                                            {row.warn}
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="flex rounded-lg border overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => setSmsProvider('moolre')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors',
-                                            smsProvider === 'moolre'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Moolre
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSmsProvider('hubtel')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            smsProvider === 'hubtel'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Hubtel
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSmsProvider('kingflexy')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            smsProvider === 'kingflexy'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        KingFlexy
-                                    </button>
-                                </div>
-                            </div>
+                            ))}
                         </CardContent>
                     </Card>
 

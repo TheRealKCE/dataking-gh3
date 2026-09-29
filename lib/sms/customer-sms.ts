@@ -359,12 +359,15 @@ export async function dispatchCampaignBatch(db: any, campaignId: string, limit: 
     // KingFlexy takes the whole list in one call, so a 500-recipient tick is a
     // single request instead of 500. Their reply is per-campaign rather than
     // per-recipient, which is why a rejected batch fails as a batch.
-    // KingFlexy whenever it is configured, whatever the global gateway toggle
-    // says. That toggle governs the platform's own notifications, which go out
-    // under one house sender ID; a shop's campaign goes out under the shop's
-    // name, and Moolre and Hubtel only accept senders registered on OUR account
-    // with them — every such send comes back "Sender ID is not approved".
-    if (isKingFlexySmsConfigured() || await getActiveSmsProvider() === 'kingflexy') {
+    // The STOREFRONT gateway decides this, not the platform's own — a shop's
+    // campaign goes out under the shop's name, and Moolre and Hubtel only accept
+    // senders registered on OUR account with them, so every such send there
+    // comes back "Sender ID is not approved".
+    //
+    // isKingFlexySmsConfigured() is the capability half: the setting can name a
+    // gateway whose key was never added, and bulk-sending into that would fail
+    // (and refund) every message one at a time.
+    if (await getActiveSmsProvider('storefront') === 'kingflexy' && isKingFlexySmsConfigured()) {
         for (let i = 0; i < mine.length; i += KF_INLINE_RECIPIENTS) {
             const chunk = mine.slice(i, i + KF_INLINE_RECIPIENTS)
 
@@ -410,6 +413,7 @@ export async function dispatchCampaignBatch(db: any, campaignId: string, limit: 
                     recipient: row.recipient,
                     message: campaign.message,
                     sender: campaign.sender_used,
+                    scope: 'storefront',
                 })
             } catch (err: any) {
                 result = { success: false, error: err?.message || 'Send failed' }
