@@ -17,7 +17,7 @@
  * already exist and would otherwise have to be rebuilt here.
  */
 
-import { getActiveSmsProvider } from '@/lib/sms-service'
+import { getActiveSmsProvider, normalizeGhanaPhone } from '@/lib/sms-service'
 import { isKingFlexySmsConfigured } from '@/lib/kingflexy-sms-service'
 import { countSegments } from '@/lib/sms/sms-rules'
 import { getAllowedSenders, dispatchCampaignBatch, settleCampaignIfDone } from '@/lib/sms/customer-sms'
@@ -69,6 +69,23 @@ function buildMessage(kind: OrderSmsKind, shopName: string, params: OrderConfirm
 }
 
 /**
+ * Records why the last confirmation did not send, for the owner to read.
+ *
+ * Only the reasons they can act on. "Already sent" and "switched off" are the
+ * system working as asked, and writing those would bury the real ones.
+ */
+async function noteSkip(db: any, accountId: string, reason: string) {
+    try {
+        await db
+            .from('sms_accounts')
+            .update({ last_order_sms_skip: reason, last_order_sms_skip_at: new Date().toISOString() })
+            .eq('id', accountId)
+    } catch (err) {
+        console.error('[OrderSms] Could not record the skip reason:', err)
+    }
+}
+
+/**
  * Warns the owner that a confirmation was dropped for want of credits.
  *
  * Throttled to one unread notice per account: a shop that runs dry at midday
@@ -116,6 +133,12 @@ export async function sendShopOrderConfirmation(
     try {
         if (!params.shopId || !params.phone) return { sent: false, skipped: 'missing shop or phone' }
 
+        // Stored in the 233XXXXXXXXX form every other SMS row uses. The guest
+        // phone arrives as 0XXXXXXXXX, and the delivery webhook matches rows on
+        // the recipient string — an un-normalised row would never be updated.
+        const recipient = normalizeGhanaPhone(params.phone)
+        if (!recipient) return { sent: false, skipped: 'invalid phone' }
+
         // ── Who owns this shop, and do they have an SMS account? ─────────────
         // Resolved through owner_id rather than sms_accounts.shop_id, which is
         // null for an account that existed before the shop did.
@@ -143,7 +166,10 @@ export async function sendShopOrderConfirmation(
         // this feature exists to stop.
         const allowed = await getAllowedSenders(db, account.id)
         const own = allowed.find((s: any) => s.type === 'own' && s.isDefault) ?? allowed.find((s: any) => s.type === 'own')
-        if (!own) return { sent: false, skipped: 'no approved sender id' }
+        if (!own) {
+            await noteSkip(db, account.id, 'You have no approved sender ID, so there is no name to send from.')
+            return { sent: false, skipped: 'no approved sender id' }
+        }
 
         // ── Gateway ──────────────────────────────────────────────────────────
         const gateway = await getActiveSmsProvider('storefront')
@@ -152,6 +178,7 @@ export async function sendShopOrderConfirmation(
                 `[OrderSms] Storefront gateway "${gateway}" cannot carry a per-shop sender ID` +
                 `${gateway === 'kingflexy' ? ' (KINGFLEXY_SMS_KEY missing)' : ''} — confirmation skipped for order ${params.orderId}.`
             )
+            await noteSkip(db, account.id, 'Sending is not configured for shop sender IDs yet — contact support.')
             return { sent: false, skipped: 'gateway cannot carry own sender' }
         }
 
@@ -184,6 +211,7 @@ export async function sendShopOrderConfirmation(
                 // A sub-agent reads their SMS pages under /dashboard/sub.
                 const { data: sub } = await db.from('sub_agents').select('id').eq('user_id', shop.owner_id).maybeSingle()
                 await warnOutOfCredits(db, shop.owner_id, sub ? '/dashboard/sub/sms' : '/dashboard/shop/sms')
+                await noteSkip(db, account.id, 'You ran out of SMS credits.')
                 return { sent: false, skipped: 'insufficient credits' }
             }
             console.error('[OrderSms] Credit debit failed:', debitError)
@@ -228,7 +256,7 @@ export async function sendShopOrderConfirmation(
         const { error: messageError } = await db.from('sms_messages').insert({
             campaign_id: campaign.id,
             account_id: account.id,
-            recipient: params.phone,
+            recipient,
             status: 'queued',
         })
 
@@ -243,7 +271,15 @@ export async function sendShopOrderConfirmation(
         const result = await dispatchCampaignBatch(db, campaign.id, 1)
         await settleCampaignIfDone(db, campaign.id)
 
-        return { sent: result.sent > 0, skipped: result.sent > 0 ? undefined : 'provider rejected', campaignId: campaign.id }
+        if (result.sent > 0) {
+            // Clear a stale reason so the screen does not keep explaining a
+            // problem that has since been fixed.
+            await noteSkip(db, account.id, '')
+            return { sent: true, campaignId: campaign.id }
+        }
+
+        await noteSkip(db, account.id, 'The network rejected the message. Your credits were refunded.')
+        return { sent: false, skipped: 'provider rejected', campaignId: campaign.id }
     } catch (error: any) {
         // Never let a confirmation take an order down with it.
         console.error('[OrderSms] Unexpected error (order unaffected):', error?.message || error)

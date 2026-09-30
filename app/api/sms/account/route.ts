@@ -22,7 +22,7 @@ export async function GET() {
         // loadSmsContext selects a fixed column list, so the toggles are read here.
         const { data: toggles } = await supabaseAdmin
             .from('sms_accounts')
-            .select('order_sms_data_enabled, order_sms_airtime_enabled')
+            .select('order_sms_data_enabled, order_sms_airtime_enabled, last_order_sms_skip, last_order_sms_skip_at')
             .eq('id', account.id)
             .maybeSingle()
 
@@ -62,6 +62,8 @@ export async function GET() {
             orderSms: {
                 data: !!(account as any).order_sms_data_enabled,
                 airtime: !!(account as any).order_sms_airtime_enabled,
+                lastSkip: (account as any).last_order_sms_skip || null,
+                lastSkipAt: (account as any).last_order_sms_skip_at || null,
             },
             account: {
                 status: account.status,

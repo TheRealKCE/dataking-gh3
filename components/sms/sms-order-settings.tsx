@@ -13,7 +13,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Wifi, Phone, Info } from 'lucide-react'
+import { Loader2, Wifi, Phone, Info, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function SmsOrderSettings({
@@ -21,6 +21,8 @@ export function SmsOrderSettings({
     airtimeEnabled,
     credits,
     hasOwnSender,
+    lastSkip,
+    lastSkipAt,
     onChanged,
     onNeedSender,
 }: {
@@ -28,6 +30,9 @@ export function SmsOrderSettings({
     airtimeEnabled: boolean
     credits: number
     hasOwnSender: boolean
+    /** Why the most recent confirmation did not send, if one did not. */
+    lastSkip?: string | null
+    lastSkipAt?: string | null
     onChanged: () => void
     onNeedSender: () => void
 }) {
@@ -111,6 +116,20 @@ export function SmsOrderSettings({
                             </div>
                         </div>
                     ))}
+
+                    {lastSkip && (
+                        <div className="flex gap-2 rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-xs">
+                            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                            <p>
+                                <span className="font-semibold">Your last order did not send an SMS.</span> {lastSkip}
+                                {lastSkipAt && (
+                                    <span className="text-muted-foreground">
+                                        {" "}({new Date(lastSkipAt).toLocaleString('en-GH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })})
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    )}
 
                     {!hasOwnSender && (
                         <div className="flex gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-xs">

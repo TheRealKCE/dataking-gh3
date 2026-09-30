@@ -46,7 +46,7 @@ interface AccountInfo {
     }
     senderIds: SenderIdRow[]
     allowedSenders: AllowedSender[]
-    orderSms: { data: boolean; airtime: boolean }
+    orderSms: { data: boolean; airtime: boolean; lastSkip?: string | null; lastSkipAt?: string | null }
 }
 
 const TABS = ['send', 'orders', 'customers', 'senders', 'credits', 'history'] as const
@@ -341,6 +341,8 @@ export function CustomerSmsPanel({ backHref, backLabel = 'Back to Shop', setupHr
                         airtimeEnabled={info.orderSms?.airtime ?? false}
                         credits={account.credits}
                         hasOwnSender={info.allowedSenders.some(s => s.type === 'own')}
+                        lastSkip={info.orderSms?.lastSkip ?? null}
+                        lastSkipAt={info.orderSms?.lastSkipAt ?? null}
                         onChanged={loadAccount}
                         onNeedSender={() => setTab('senders')}
                     />

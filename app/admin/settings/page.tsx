@@ -764,14 +764,14 @@ export default function AdminSettingsPage() {
                                 {
                                     key: 'storefront' as const,
                                     label: 'Storefronts',
-                                    hint: 'Shop campaigns and shop order confirmations, sent under each shop&apos;s own sender ID.',
+                                    hint: 'Shop campaigns and shop order confirmations, sent under each shop’s own sender ID.',
                                     value: storefrontSmsProvider,
                                     set: setStorefrontSmsProvider,
                                     // Moolre and Hubtel only accept senders registered on the ARHMS
                                     // account, so a per-shop sender there fails for every recipient.
                                     warn: storefrontSmsProvider !== 'kingflexy'
                                         ? 'Shops cannot send under their own sender ID on this gateway — their sends will be refused.'
-                                        : 'Each shop&apos;s sender ID must also be registered on the ARHMS KingFlexy account.',
+                                        : 'Each shop’s sender ID must also be registered on the ARHMS KingFlexy account.',
                                 },
                             ]).map((row) => (
                                 <div key={row.key} className="p-4 border rounded-lg space-y-2 mb-3 last:mb-0">
