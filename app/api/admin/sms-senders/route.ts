@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase'
 import { validateAdminAccess } from '@/lib/auth-utils'
 import { sendSenderIdApprovedSMS, sendSenderIdRejectedSMS, getActiveSmsProvider } from '@/lib/sms-service'
 import { fetchKingFlexySenders, fetchKingFlexyBalance } from '@/lib/kingflexy-sms-service'
+import { validateSenderId } from '@/lib/sms/sms-rules'
+import { resolveSmsAccount } from '@/lib/sms/customer-sms'
 
 /**
  * Admin queue for Customer SMS sender IDs.
@@ -33,7 +35,45 @@ export async function GET(request: NextRequest) {
         }
 
         const supabase = createServerClient()
-        const status = new URL(request.url).searchParams.get('status')
+        const url = new URL(request.url)
+        const status = url.searchParams.get('status')
+
+        // Shop picker for "add a sender ID": admins know the shop by name, not by
+        // the account id the sender row actually hangs off.
+        const lookup = (url.searchParams.get('lookup') || '').trim()
+        if (lookup) {
+            const { data: shops } = await (supabase as any)
+                .from('shop_profiles')
+                .select('id, shop_name, shop_slug, approval_status, owner_id, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, phone_number)')
+                .or(`shop_name.ilike.%${lookup}%,shop_slug.ilike.%${lookup}%`)
+                .limit(20)
+
+            const ownerIds = (shops || []).map((row: any) => row.owner_id).filter(Boolean)
+            const { data: accounts } = ownerIds.length
+                ? await (supabase as any)
+                    .from('sms_accounts')
+                    .select('id, user_id, status, credits')
+                    .in('user_id', ownerIds)
+                : { data: [] }
+
+            const byUser = new Map<string, any>((accounts || []).map((a: any) => [a.user_id, a]))
+
+            return NextResponse.json({
+                success: true,
+                shops: (shops || []).map((row: any) => ({
+                    id: row.id,
+                    shopName: row.shop_name,
+                    shopSlug: row.shop_slug,
+                    approvalStatus: row.approval_status,
+                    ownerId: row.owner_id,
+                    ownerName: [row.owner?.first_name, row.owner?.last_name].filter(Boolean).join(' ') || null,
+                    ownerPhone: row.owner?.phone_number || null,
+                    // Null means the shop has never opened Customer SMS; adding a
+                    // sender still works, it is just locked until they pay to unlock.
+                    accountStatus: byUser.get(row.owner_id)?.status ?? null,
+                })),
+            })
+        }
 
         let query = (supabase as any)
             .from('sms_sender_ids')
@@ -72,7 +112,7 @@ export async function GET(request: NextRequest) {
         let providerBalance: number | null = null
         let providerError: string | null = null
 
-        if (await getActiveSmsProvider() === 'kingflexy') {
+        if (await getActiveSmsProvider('storefront') === 'kingflexy') {
             const [senderList, balance] = await Promise.all([
                 fetchKingFlexySenders(),
                 fetchKingFlexyBalance(),
@@ -86,7 +126,7 @@ export async function GET(request: NextRequest) {
             success: true,
             senders: data || [],
             counts,
-            provider: await getActiveSmsProvider(),
+            provider: await getActiveSmsProvider('storefront'),
             providerSenders,
             providerBalance,
             providerError,
@@ -239,5 +279,137 @@ export async function PATCH(request: NextRequest) {
     } catch (error: any) {
         console.error('[AdminSmsSenders] PATCH error:', error)
         return NextResponse.json({ error: error.message || 'Failed to update sender ID' }, { status: 500 })
+    }
+}
+
+/**
+ * Adds a sender ID for a shop, on the shop's behalf.
+ *
+ * The normal flow is the shop requesting and an admin approving. This is the
+ * other direction, for when an admin has already registered the name on the
+ * ARHMS KingFlexy account and just needs ARHMS to agree — otherwise the shop
+ * has to be talked through requesting a name that is, in effect, already live.
+ *
+ * body: { shopId, sender, businessName?, status?: 'pending' | 'submitted' | 'approved' }
+ */
+export async function POST(request: NextRequest) {
+    try {
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+        }
+        const adminUser = authResult.user!
+
+        const body: any = await request.json().catch(() => ({}))
+        const shopId = String(body.shopId || '')
+        const sender = String(body.sender || '').trim()
+        const status = ['pending', 'submitted', 'approved'].includes(body.status) ? body.status : 'approved'
+
+        if (!shopId) return NextResponse.json({ error: 'Choose a shop' }, { status: 400 })
+
+        // The same rule the shop's own form applies. An admin may be registering a
+        // name the networks already took, but a name the networks will REFUSE
+        // helps nobody, so the check holds on this path too.
+        const check = validateSenderId(sender)
+        if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 })
+
+        const supabase = createServerClient()
+
+        const { data: shop } = await (supabase as any)
+            .from('shop_profiles')
+            .select('id, owner_id, shop_name')
+            .eq('id', shopId)
+            .maybeSingle()
+
+        if (!shop?.owner_id) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
+
+        // Creates the SMS account if the shop has never opened Customer SMS. It
+        // starts 'locked' — the sender is ready for whenever they unlock, and
+        // nothing can be sent until they do.
+        const account = await resolveSmsAccount(supabase, shop.owner_id, shop.id)
+        if (!account) return NextResponse.json({ error: 'Could not resolve the shop SMS account' }, { status: 500 })
+
+        const now = new Date().toISOString()
+        const row: Record<string, any> = {
+            account_id: account.id,
+            sender,
+            business_name: String(body.businessName || '').trim() || shop.shop_name || null,
+            status,
+        }
+        if (status === 'submitted') row.submitted_at = now
+        if (status === 'approved') {
+            row.submitted_at = now
+            row.approved_at = now
+            row.approved_by = adminUser.id
+        }
+
+        const { data: created, error } = await (supabase as any)
+            .from('sms_sender_ids')
+            .insert(row)
+            .select('id, sender, status')
+            .single()
+
+        if (error) {
+            // (account_id, sender) is unique, and lower(sender) is globally unique
+            // once submitted or approved — the two collisions read differently.
+            if (error.code === '23505') {
+                return NextResponse.json(
+                    { error: 'That sender ID already exists, either for this shop or for another business.' },
+                    { status: 409 }
+                )
+            }
+            console.error('[AdminSmsSenders] insert failed:', error)
+            return NextResponse.json({ error: 'Could not add the sender ID' }, { status: 500 })
+        }
+
+        if (status === 'approved') {
+            // First approved name becomes the default, so the shop can send without
+            // having to choose one.
+            const { data: hasDefault } = await (supabase as any)
+                .from('sms_sender_ids')
+                .select('id')
+                .eq('account_id', account.id)
+                .eq('status', 'approved')
+                .eq('is_default', true)
+                .maybeSingle()
+
+            if (!hasDefault) {
+                await (supabase as any).from('sms_sender_ids').update({ is_default: true }).eq('id', created.id)
+                await (supabase as any)
+                    .from('sms_accounts')
+                    .update({ default_sender: sender, updated_at: now })
+                    .eq('id', account.id)
+            }
+
+            const { data: subRow } = await (supabase as any)
+                .from('sub_agents')
+                .select('id')
+                .eq('user_id', shop.owner_id)
+                .maybeSingle()
+
+            await (supabase as any).from('notifications').insert({
+                user_id: shop.owner_id,
+                title: 'Sender ID Approved ✅',
+                message: `Your sender ID "${sender}" is approved. Your customer SMS will now arrive from ${sender}.`,
+                type: 'system',
+                action_url: subRow ? '/dashboard/sub/sms?tab=senders' : '/dashboard/shop/sms?tab=senders',
+            })
+
+            try {
+                const { data: user } = await (supabase as any)
+                    .from('users')
+                    .select('phone_number')
+                    .eq('id', shop.owner_id)
+                    .maybeSingle()
+                if (user?.phone_number) await sendSenderIdApprovedSMS(user.phone_number, sender)
+            } catch (smsError) {
+                console.error('[AdminSmsSenders] approval SMS failed:', smsError)
+            }
+        }
+
+        return NextResponse.json({ success: true, senderId: created, accountStatus: account.status })
+    } catch (error: any) {
+        console.error('[AdminSmsSenders] POST error:', error)
+        return NextResponse.json({ error: error.message || 'Failed to add the sender ID' }, { status: 500 })
     }
 }

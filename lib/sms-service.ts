@@ -12,6 +12,11 @@ interface SMSOptions {
     recipient: string
     message: string
     sender?: string
+    /**
+     * Which gateway setting decides this send. Defaults to the main site, so
+     * every existing caller keeps the behaviour it had.
+     */
+    scope?: SmsScope
 }
 
 interface SMSResult {
@@ -44,7 +49,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     }
 
     // Determine active provider from admin_settings (falls back to 'moolre')
-    const provider = await getActiveSmsProvider()
+    const provider = await getActiveSmsProvider(options.scope)
 
     if (provider === 'kingflexy') {
         return sendKingFlexySMS(options)
@@ -64,20 +69,36 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 export type ActiveSmsProvider = 'kingflexy' | 'hubtel' | 'moolre'
 
 /**
- * Reads the active SMS provider from the admin_settings table.
- * Defaults to 'moolre' on any error.
+ * The two independently-routed halves of the platform's SMS.
  *
- * Exported because Customer SMS branches on it before dispatching: KingFlexy
- * takes a whole recipient list in one call, so a campaign there is a handful of
- * requests rather than one per customer.
+ * 'main' is the platform speaking as itself — OTPs, wallet top-ups, upgrades,
+ * main-site order updates — all under one house sender ID.
+ *
+ * 'storefront' is a shop speaking as itself: Customer SMS campaigns and shop
+ * order confirmations, sent under the shop's OWN approved sender ID. That is
+ * why they cannot share one setting — Moolre and Hubtel reject any sender not
+ * registered on the platform's own account, so per-shop senders only work on a
+ * gateway that supports them.
  */
-export async function getActiveSmsProvider(): Promise<ActiveSmsProvider> {
+export type SmsScope = 'main' | 'storefront'
+
+const SCOPE_SETTING_KEY: Record<SmsScope, string> = {
+    main: 'active_sms_provider',
+    storefront: 'active_sms_provider_storefront',
+}
+
+/**
+ * Reads the active SMS provider for a scope from admin_settings.
+ * Defaults to 'moolre' on any error, and for a storefront row that was never
+ * seeded — the caller's capability gate is what stops an own-sender send there.
+ */
+export async function getActiveSmsProvider(scope: SmsScope = 'main'): Promise<ActiveSmsProvider> {
     try {
         const supabase = createServerClient()
         const { data } = await supabase
             .from('admin_settings')
             .select('value')
-            .eq('key', 'active_sms_provider')
+            .eq('key', SCOPE_SETTING_KEY[scope] ?? SCOPE_SETTING_KEY.main)
             .single()
         // The column is JSONB and older rows were written quoted, so a stored
         // "kingflexy" and kingflexy must both match.

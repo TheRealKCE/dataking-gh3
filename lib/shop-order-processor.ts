@@ -484,6 +484,7 @@ export async function processShopOrder(
                 fulfillmentMode,
                 orderType: metadata.type || metadata.order_type || 'data',
                 bundlePreference: metadata.bundle_preference,
+                shopId: metadata.shop_id,
                 airtimeOrderId,
                 ...fulfillmentPayload
             })
@@ -518,6 +519,8 @@ async function triggerShopFulfillment(
         amount?: number
         size?: string
         bundlePreference?: string
+        /** Whose storefront this was bought on — the shop that gets to brand the SMS. */
+        shopId?: string | null
         /** The mirrored airtime_orders row, when this is an airtime order. */
         airtimeOrderId?: string | null
     }
@@ -815,30 +818,32 @@ async function triggerShopFulfillment(
 
             console.log(`[Shop Order Processor] Fulfillment success for order ${orderId} via ${supplierLabel}`)
 
-            // AirtelTigo via Agent Portal has no verification gate — it delivers quickly.
-            // Reassure the recipient once that delivery is instant.
-            if (isAgentPortalEnabled && /^AT/i.test(network)) {
+            // The buyer's confirmation now comes from the SHOP, under the shop's own
+            // sender ID and paid from the shop's own SMS credits — a storefront buyer
+            // should hear from the shop they bought from, not from ARHMS.
+            //
+            // A shop that has not switched this on sends nothing: the platform used to
+            // carry ~10k of these a month advertising other people's shops. The
+            // `extra.size` guard still holds airtime out; airtime confirms on
+            // completion instead, in lib/airtime-order-completion.ts.
+            //
+            // Deliberately not awaited for its result beyond logging: a confirmation
+            // must never be able to fail a fulfilled order.
+            if (extra.size && extra.shopId) {
                 try {
-                    const { sendAtInstantDeliverySMS } = await import('@/lib/sms-service')
-                    await sendAtInstantDeliverySMS(phone, { network, size: extra.size || '' })
+                    const { sendShopOrderConfirmation } = await import('@/lib/sms/order-confirmations')
+                    const outcome = await sendShopOrderConfirmation(db, {
+                        shopId: extra.shopId,
+                        orderId,
+                        kind: 'data',
+                        phone,
+                        details: { network, size: extra.size },
+                    })
+                    if (!outcome.sent) {
+                        console.log(`[Shop Order Processor] No shop SMS for ${orderId}: ${outcome.skipped}`)
+                    }
                 } catch (smsErr: any) {
-                    console.error(`[Shop Order Processor] AT instant SMS failed for ${orderId}:`, smsErr?.message)
-                }
-            } else if (extra.size) {
-                // EVERY other network — with the supplier now, so confirm receipt once
-                // without quoting a delivery time. The `extra.size` guard is what keeps
-                // airtime out of here; airtime has its own SMS.
-                //
-                // Was `else if (/MTN/i.test(network) && extra.size)`, which sent nothing
-                // for Telecel and nothing for AirtelTigo unless AgentPortal was the
-                // active supplier — so with Dakazina fulfilling, only MTN buyers were
-                // ever texted. sendMtnOrderReceivedSMS is network-agnostic despite its
-                // name.
-                try {
-                    const { sendMtnOrderReceivedSMS } = await import('@/lib/sms-service')
-                    await sendMtnOrderReceivedSMS(phone, { network, size: extra.size })
-                } catch (smsErr: any) {
-                    console.error(`[Shop Order Processor] order-received SMS failed for ${orderId}:`, smsErr?.message)
+                    console.error(`[Shop Order Processor] Shop order SMS failed for ${orderId}:`, smsErr?.message)
                 }
             }
 
