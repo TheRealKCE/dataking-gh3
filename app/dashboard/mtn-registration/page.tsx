@@ -21,7 +21,11 @@ import {
     Info,
 } from 'lucide-react'
 
-const MAX_NUMBERS = 1000
+type Server = 1 | 2
+
+// Server 1 = Agent Portal (auto-submits unregistered numbers to MTN).
+// Server 2 = BundlePortal (check only, one upstream call per number, so a lower cap).
+const MAX_NUMBERS: Record<Server, number> = { 1: 1000, 2: 200 }
 
 type CheckStatus = 'registered' | 'submitted' | 'invalid' | 'not_mtn'
 
@@ -73,6 +77,8 @@ function parseNumbers(text: string): string[] {
 }
 
 export default function MtnRegistrationPage() {
+    const [server, setServer] = useState<Server>(1)
+    const [checkedServer, setCheckedServer] = useState<Server>(1)
     const [inputType, setInputType] = useState<'text' | 'excel'>('text')
     const [text, setText] = useState('')
     const [file, setFile] = useState<File | null>(null)
@@ -83,15 +89,16 @@ export default function MtnRegistrationPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const pastedNumbers = useMemo(() => parseNumbers(text), [text])
-    const overLimit = pastedNumbers.length > MAX_NUMBERS
+    const maxNumbers = MAX_NUMBERS[server]
+    const overLimit = pastedNumbers.length > maxNumbers
 
     const runCheck = async (numbers: string[]) => {
         if (numbers.length === 0) {
             toast.error('Add at least one number')
             return
         }
-        if (numbers.length > MAX_NUMBERS) {
-            toast.error(`You can check up to ${MAX_NUMBERS} numbers at a time`)
+        if (numbers.length > maxNumbers) {
+            toast.error(`You can check up to ${maxNumbers} numbers at a time on Server ${server}`)
             return
         }
 
@@ -104,7 +111,7 @@ export default function MtnRegistrationPage() {
             const response = await fetch('/api/mtn/check-registration', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ numbers }),
+                body: JSON.stringify({ numbers, server }),
             })
 
             const data = await response.json()
@@ -116,9 +123,10 @@ export default function MtnRegistrationPage() {
 
             setResults(data.results)
             setSummary(data.summary)
+            setCheckedServer(server)
 
             if (data.summary.submitted > 0) {
-                toast.success(`${data.summary.registered} registered · ${data.summary.submitted} NOT registered (sent to MTN)`)
+                toast.success(`${data.summary.registered} registered · ${data.summary.submitted} NOT registered${server === 1 ? ' (sent to MTN)' : ''}`)
             } else {
                 toast.success(`All ${data.summary.registered} MTN numbers are registered`)
             }
@@ -221,12 +229,38 @@ export default function MtnRegistrationPage() {
                     <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-xl shrink-0">
                         <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                     </div>
-                    <p className="text-base text-amber-900 dark:text-amber-200 text-left leading-relaxed">
-                        Numbers that are <strong>not registered</strong> are sent to MTN automatically. Registration can
-                        take <strong>up to 2 weeks</strong> — orders placed for them are held and delivered
-                        automatically once it completes. You can check up to{' '}
-                        <strong>{MAX_NUMBERS.toLocaleString()}</strong> numbers at once.
-                    </p>
+                    {server === 1 ? (
+                        <p className="text-base text-amber-900 dark:text-amber-200 text-left leading-relaxed">
+                            Numbers that are <strong>not registered</strong> are sent to MTN automatically. Registration can
+                            take <strong>up to 2 weeks</strong> — orders placed for them are held and delivered
+                            automatically once it completes. You can check up to{' '}
+                            <strong>{maxNumbers.toLocaleString()}</strong> numbers at once.
+                        </p>
+                    ) : (
+                        <p className="text-base text-amber-900 dark:text-amber-200 text-left leading-relaxed">
+                            Server 2 <strong>only checks</strong> — a number that is not registered there is{' '}
+                            <strong>not</strong> sent to MTN. Use Server 1 to submit it. You can check up to{' '}
+                            <strong>{maxNumbers.toLocaleString()}</strong> numbers at once.
+                        </p>
+                    )}
+                </div>
+
+                {/* Server */}
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-muted">
+                    {([1, 2] as Server[]).map((s) => (
+                        <button
+                            key={s}
+                            type="button"
+                            onClick={() => setServer(s)}
+                            disabled={isChecking}
+                            className={cn(
+                                'h-11 rounded-xl font-bold text-base transition-colors',
+                                server === s ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                            )}
+                        >
+                            Server {s}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Input */}
@@ -266,7 +300,7 @@ export default function MtnRegistrationPage() {
                                 />
                                 <div className="flex items-center justify-between text-sm">
                                     <span className={cn('font-medium', overLimit ? 'text-red-600' : 'text-muted-foreground')}>
-                                        {pastedNumbers.length.toLocaleString()} / {MAX_NUMBERS.toLocaleString()} numbers
+                                        {pastedNumbers.length.toLocaleString()} / {maxNumbers.toLocaleString()} numbers
                                     </span>
                                     {text && (
                                         <button
@@ -280,7 +314,7 @@ export default function MtnRegistrationPage() {
                                 </div>
                                 {overLimit && (
                                     <p className="text-xs text-red-600">
-                                        Too many numbers. Remove {(pastedNumbers.length - MAX_NUMBERS).toLocaleString()} and try again.
+                                        Too many numbers. Remove {(pastedNumbers.length - maxNumbers).toLocaleString()} and try again.
                                     </p>
                                 )}
                                 <Button
@@ -344,7 +378,7 @@ export default function MtnRegistrationPage() {
                 {results && summary && !isChecking && (
                     <Card className="rounded-3xl">
                         <CardHeader>
-                            <CardTitle className="text-xl">Results</CardTitle>
+                            <CardTitle className="text-xl">Results · Server {checkedServer}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Summary chips double as filters */}

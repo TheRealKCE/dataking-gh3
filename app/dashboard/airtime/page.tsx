@@ -66,7 +66,7 @@ function MTNLogo() {
 }
 function TelecelLogo() {
     return (
-        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+        <svg viewBox="0 0 60 60" className="w-full h-full" fill="none">
             <circle cx="30" cy="30" r="30" fill="#e63946"/>
             <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="11" fontWeight="bold" fill="white">Telecel</text>
         </svg>
@@ -82,11 +82,12 @@ function ATLogo() {
     )
 }
 
-const NetworkLogo = ({ id }: { id: string }) => {
-    if (id === 'MTN') return <MTNLogo />
-    if (id === 'Telecel') return <TelecelLogo />
-    return <ATLogo />
-}
+// Fixed box: the SVGs are w-full h-full, so without it they stretch to the whole card.
+const NetworkLogo = ({ id, className = 'w-10 h-10' }: { id: string; className?: string }) => (
+    <div className={cn('shrink-0', className)}>
+        {id === 'MTN' ? <MTNLogo /> : id === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+    </div>
+)
 
 interface AirtimeSettings {
     fee_mtn_customer: number; fee_mtn_agent: number
@@ -821,7 +822,7 @@ function AirtimePageInner() {
                                         onClick={() => { setSelectedNetwork(net.id); setIsManualSelection(true) }}
                                         disabled={!isEnabled || (mode === 'mashup' && net.id !== 'MTN')}
                                         className={cn(
-                                            'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200 font-bold text-sm',
+                                            'relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all duration-200 font-bold text-sm',
                                             isSelected
                                                 ? `bg-gradient-to-br ${net.gradient} border-transparent shadow-lg scale-[1.03]`
                                                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-400',
@@ -1231,7 +1232,7 @@ function AirtimePageInner() {
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
                                             <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
-                                                <NetworkLogo id={order.network} />
+                                                <NetworkLogo id={order.network} className="w-8 h-8" />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-0.5">
