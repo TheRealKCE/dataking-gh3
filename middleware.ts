@@ -670,7 +670,20 @@ export async function middleware(request: NextRequest) {
     const adminPublicEndpoints = ['/api/admin/get-prices', '/api/admin-settings']
     const isAdminPublicEndpoint = adminPublicEndpoints.some(ep => pathname === ep)
 
-    if ((isAdminUI || isAdminAPI) && !isAdminPublicEndpoint) {
+    // The SMS broadcast batch processor is called server-to-server (the enqueue
+    // route fires a fire-and-forget fetch at it, and it chains itself batch by
+    // batch) — there is no browser session to forward, so it authenticates with
+    // CRON_SECRET instead, same as /api/cron/*. The path alone grants nothing;
+    // only a correct bearer token does.
+    const isSmsBroadcastProcessor = pathname === '/api/admin/sms-broadcast/process'
+    if (isSmsBroadcastProcessor) {
+        const authHeader = request.headers.get('authorization')
+        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+            return addNoCacheHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+        }
+    }
+
+    if ((isAdminUI || isAdminAPI) && !isAdminPublicEndpoint && !isSmsBroadcastProcessor) {
         if (!authUser) {
             if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))

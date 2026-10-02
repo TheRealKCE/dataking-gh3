@@ -17,6 +17,15 @@ const processSchema = z.object({
 
 export async function POST(request: NextRequest) {
     try {
+        // Defense in depth: middleware.ts already gates this exact path on the
+        // same header before the request reaches here. Checked again in case
+        // that config ever drifts — this route moves real SMS spend and must
+        // never be reachable without the shared secret.
+        const authHeader = request.headers.get('authorization')
+        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const body = await request.json()
         const parsed = processSchema.safeParse(body)
         if (!parsed.success) {
@@ -107,7 +116,10 @@ export async function POST(request: NextRequest) {
             const origin = request.nextUrl.origin
             fetch(`${origin}/api/admin/sms-broadcast/process`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+                },
                 body: JSON.stringify({ jobId }),
             }).catch(err => console.error('[SMSBroadcastProcess] Failed to chain next batch:', err))
         }
