@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react'
 import {
     Tv, Zap, Droplets, CheckCircle2, Loader2, Wallet, AlertTriangle,
-    Search, ArrowRight, History, Copy, RefreshCw, Info, Phone,
+    Search, ArrowRight, History, Copy, RefreshCw, Info, Phone, CreditCard,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSearchParams } from 'next/navigation'
@@ -172,7 +172,10 @@ function UtilitiesPageInner() {
     const [ackUnlinkedMeter, setAckUnlinkedMeter] = useState(false)
     const [lookupError, setLookupError] = useState<string | null>(null)
 
-    // Payment
+    // Payment — wallet debit, or a direct MoMo/card charge for this bill.
+    // 'direct' never touches the wallet: /api/utilities/gateway-init records a payment
+    // intent and lib/utility-order-payments.ts creates the order once the gateway confirms.
+    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [momoPhone, setMomoPhone] = useState('')
     const [momoNetwork, setMomoNetwork] = useState('')
@@ -486,6 +489,13 @@ function UtilitiesPageInner() {
         && !!accountNumber.trim()
         && (!lookup?.accountName || meterMismatch)
 
+    const hasEnoughBalance = walletBalance !== null && totalPayable > 0 && walletBalance >= totalPayable
+    // Direct Pay collects the money at checkout, so the wallet balance is irrelevant to it;
+    // a wallet payment needs nothing from the MoMo fields since no gateway prompt is sent.
+    const paymentReady = paymentMethod === 'wallet'
+        ? hasEnoughBalance
+        : (!needsMomoDetails || (!!momoPhone && !!momoNetwork))
+
     const canSubmit = !!service
         && (!!lookup?.accountName || payingUnlinkedMeter)
         && parsedAmount >= (service?.minAmount ?? 1)
@@ -494,7 +504,7 @@ function UtilitiesPageInner() {
         // A mismatch is only a blocker while it is unacknowledged; ticking the box
         // is the customer saying they meant this meter.
         && (!meterMismatch || payingUnlinkedMeter)
-        && (!needsMomoDetails || (!!momoPhone && !!momoNetwork))
+        && paymentReady
 
     const resetForm = () => {
         setAccountNumber('')
@@ -564,7 +574,34 @@ function UtilitiesPageInner() {
         }
     }
 
-    const handleConfirm = () => payFromGateway()
+    const handleWalletSubmit = async () => {
+        setIsSubmitting(true)
+        try {
+            const res = await fetch('/api/utilities/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(requestBody()),
+            })
+            const data = await res.json()
+
+            if (!res.ok) {
+                toast.error(data.error || 'Failed to place order')
+                return
+            }
+
+            setShowConfirm(false)
+            if (data.order?.new_balance !== undefined) setWalletBalance(data.order.new_balance)
+            setSuccessOrder(data.order)
+            resetForm()
+        } catch {
+            toast.error('An unexpected error occurred. Please try again.')
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    const handleConfirm = () => paymentMethod === 'wallet' ? handleWalletSubmit() : payFromGateway()
 
     const filteredOrders = useMemo(() => {
         const q = searchQuery.toLowerCase()
@@ -876,7 +913,40 @@ function UtilitiesPageInner() {
                                     </p>
                                 </div>
 
-                                {needsMomoDetails && (
+                                {/* How to pay */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaymentMethod('wallet')}
+                                        className={cn(
+                                            'p-3 rounded-2xl border flex items-center gap-2 transition-colors text-left',
+                                            paymentMethod === 'wallet' ? 'border-foreground bg-muted shadow-sm' : 'border-border hover:border-muted-foreground/40'
+                                        )}
+                                    >
+                                        <Wallet className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        <div className="min-w-0">
+                                            <div className="font-bold text-sm text-foreground">Wallet</div>
+                                            <div className="text-xs text-muted-foreground truncate">GHS {walletBalance !== null ? walletBalance.toFixed(2) : '—'} available</div>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaymentMethod('direct')}
+                                        className={cn(
+                                            'p-3 rounded-2xl border flex items-center gap-2 transition-colors text-left',
+                                            paymentMethod === 'direct' ? 'border-foreground bg-muted shadow-sm' : 'border-border hover:border-muted-foreground/40'
+                                        )}
+                                    >
+                                        <CreditCard className="w-5 h-5 text-blue-500 shrink-0" />
+                                        <div className="min-w-0">
+                                            <div className="font-bold text-sm text-foreground">Direct Pay</div>
+                                            <div className="text-xs text-muted-foreground truncate">MoMo or Card</div>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                {/* MoMo details — direct payment only, and only on a rail that prompts a handset */}
+                                {paymentMethod === 'direct' && needsMomoDetails && (
                                     <div className="grid sm:grid-cols-2 gap-3">
                                         <div>
                                             <Label className="text-sm font-semibold text-foreground">MoMo number</Label>
@@ -901,6 +971,22 @@ function UtilitiesPageInner() {
                                                     <SelectItem value="AT">AirtelTigo</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {paymentMethod === 'wallet' && parsedAmount > 0 && !hasEnoughBalance && walletBalance !== null && (
+                                    <div className="rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4 flex items-center gap-3">
+                                        <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                                        <div>
+                                            <p className="text-sm font-bold text-red-700 dark:text-red-400">Insufficient Balance</p>
+                                            <p className="text-xs text-red-500 font-semibold">
+                                                You need GHS {totalPayable.toFixed(2)} but have GHS {walletBalance.toFixed(2)}.{' '}
+                                                <button type="button" className="underline font-bold" onClick={() => setPaymentMethod('direct')}>
+                                                    Pay directly instead
+                                                </button>{' '}
+                                                or top up your wallet.
+                                            </p>
                                         </div>
                                     </div>
                                 )}
