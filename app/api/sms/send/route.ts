@@ -141,7 +141,8 @@ export async function POST(request: Request) {
         // "Sender ID is not approved" for every recipient. The credits would be
         // refunded, but the owner would have watched a campaign fail for a
         // reason they cannot act on.
-        if (senderEntry.type === 'own' && !isKingFlexySmsConfigured() && await getActiveSmsProvider() !== 'kingflexy') {
+        const storefrontGateway = await getActiveSmsProvider('storefront')
+        if (senderEntry.type === 'own' && !(storefrontGateway === 'kingflexy' && isKingFlexySmsConfigured())) {
             console.error('[CustomerSmsSend] Blocked: own sender ID with no KingFlexy gateway configured.')
             return NextResponse.json(
                 { error: 'Sending under your own sender ID is not available right now. Please contact support.' },

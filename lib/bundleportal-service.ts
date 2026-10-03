@@ -429,6 +429,60 @@ export function mapBundlePortalStatus(status: string): MappedStatus {
     return 'pending'
 }
 
+// ─── MTN Number Verification ───────────────────────────────────────────────────
+/**
+ * Check which MTN numbers BundlePortal will deliver to.
+ * POST /v2 { action: "verify_number", network: "mtn", recipient } — free, one
+ * number per call, and unlike Agent Portal it does NOT submit an unapproved
+ * number for registration. Calls run with bounded concurrency, as their docs ask.
+ *
+ * `allowed` holds approved numbers; `inFlight` those approved but blocked by an
+ * unfinished order (can_order false). A number whose lookup failed is in
+ * neither set and is reported in `failed`.
+ */
+export async function verifyMtnNumbers(msisdns: string[], concurrency = 5): Promise<{
+    success: boolean
+    allowed: Set<string>
+    inFlight: Set<string>
+    failed: Set<string>
+    error?: string
+}> {
+    const allowed = new Set<string>()
+    const inFlight = new Set<string>()
+    const failed = new Set<string>()
+    if (!BUNDLEPORTAL_API_KEY) return { success: false, allowed, inFlight, failed, error: 'API key not configured' }
+
+    let lastError: string | undefined
+    let next = 0
+    const worker = async () => {
+        while (next < msisdns.length) {
+            const number = msisdns[next++]
+            try {
+                const { ok, data, status } = await callApi('verify_number', { network: 'mtn', recipient: normalizePhone(number) }, 10_000)
+                if (ok && data?.success === true && data?.data) {
+                    if (data.data.allowed === true) {
+                        allowed.add(number)
+                        if (data.data.can_order === false) inFlight.add(number)
+                    }
+                } else {
+                    failed.add(number)
+                    lastError = data?.message || data?.error || `HTTP ${status}`
+                }
+            } catch (error: any) {
+                failed.add(number)
+                lastError = error?.message || 'Connection error'
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(concurrency, msisdns.length) }, worker))
+
+    if (failed.size === msisdns.length && msisdns.length > 0) {
+        console.error('[BundlePortal Verify] Every lookup failed:', lastError)
+        return { success: false, allowed, inFlight, failed, error: lastError }
+    }
+    return { success: true, allowed, inFlight, failed }
+}
+
 // ─── Balance Fetch ─────────────────────────────────────────────────────────────
 /**
  * Fetch live BundlePortal wallet balance.

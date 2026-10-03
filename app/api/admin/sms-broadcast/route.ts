@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
-import { sendSMS } from '@/lib/sms-service'
-import { fetchAllRows } from '@/lib/supabase-pagination'
+import { kickSmsBroadcast } from '@/lib/sms-broadcast-kick'
 import { z } from 'zod'
 import { adminLongTextSchema } from '@/lib/validation'
 import { Ratelimit } from '@upstash/ratelimit'
@@ -60,12 +59,12 @@ export async function POST(request: NextRequest) {
             userIds: z.array(z.string()).max(20000).optional(),
             roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer', 'shop_owner']).optional(),
         })
-        
+
         const validation = broadcastSchema.safeParse(body)
         if (!validation.success) {
             return NextResponse.json({ error: 'Invalid input', details: validation.error.errors }, { status: 400 })
         }
-        
+
         const { userIds, roleFilter, message } = validation.data
 
         if (!userIds && !roleFilter) {
@@ -84,7 +83,7 @@ export async function POST(request: NextRequest) {
         // Fetch from users table
         if (!userIds || realUserIds.length > 0 || (roleFilter && roleFilter !== 'all')) {
             let usersData: any[] = []
-            
+
             if (userIds && realUserIds.length > 0) {
                 // Chunk queries to avoid URI Too Long error
                 const CHUNK_SIZE = 150
@@ -95,7 +94,7 @@ export async function POST(request: NextRequest) {
                         .select('id, first_name, phone_number, role')
                         .not('phone_number', 'is', null)
                         .in('id', chunk)
-                    
+
                     if (error) {
                         console.error('[SMSBroadcast] Error fetching users chunk:', error)
                         return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
@@ -103,28 +102,23 @@ export async function POST(request: NextRequest) {
                     if (data) usersData.push(...(data as any[]))
                 }
             } else {
-                // Paged: an unbounded select stops at PostgREST's 1000-row cap, which would
-                // silently drop every recipient past the first thousand from the broadcast.
-                const { data, error } = await fetchAllRows<any>(() => {
-                    let query = supabase
-                        .from('users')
-                        .select('id, first_name, phone_number, role')
-                        .not('phone_number', 'is', null)
-                        .order('id', { ascending: true })
+                let query = supabase
+                    .from('users')
+                    .select('id, first_name, phone_number, role')
+                    .not('phone_number', 'is', null)
 
-                    if (roleFilter && roleFilter !== 'all' && roleFilter !== 'shop_owner') {
-                        query = query.eq('role', roleFilter)
-                    }
+                if (roleFilter && roleFilter !== 'all' && roleFilter !== 'shop_owner') {
+                    query = query.eq('role', roleFilter)
+                }
 
-                    return query
-                })
+                const { data, error } = await query
                 if (error) {
                     console.error('[SMSBroadcast] Error fetching users:', error)
                     return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
                 }
                 if (data) usersData = data
             }
-            
+
             if (usersData.length > 0 && roleFilter !== 'shop_owner') {
                 recipients = [...recipients, ...usersData]
             }
@@ -133,7 +127,7 @@ export async function POST(request: NextRequest) {
         // Fetch from shops table
         if ((userIds && shopIds.length > 0) || roleFilter === 'shop_owner' || roleFilter === 'all') {
             let shopsData: any[] = []
-            
+
             if (userIds && shopIds.length > 0) {
                 const CHUNK_SIZE = 150
                 for (let i = 0; i < shopIds.length; i += CHUNK_SIZE) {
@@ -143,16 +137,15 @@ export async function POST(request: NextRequest) {
                         .select('id, shop_name, owner_phone')
                         .not('owner_phone', 'is', null)
                         .in('id', chunk)
-                        
+
                     if (error) console.error('[SMSBroadcast] Error fetching shops chunk:', error)
                     if (data) shopsData.push(...(data as any[]))
                 }
             } else {
-                const { data, error } = await fetchAllRows<any>(() => supabase
+                const { data, error } = await supabase
                     .from('shop_profiles')
                     .select('id, shop_name, owner_phone')
                     .not('owner_phone', 'is', null)
-                    .order('id', { ascending: true }))
 
                 if (error) console.error('[SMSBroadcast] Error fetching shops:', error)
                 if (data) shopsData = data
@@ -165,61 +158,61 @@ export async function POST(request: NextRequest) {
                     phone_number: s.owner_phone,
                     role: 'shop_owner'
                 }))
-                
+
                 // Deduplicate phones
                 const existingPhones = new Set(recipients.map(r => r.phone_number.replace(/\s+/g, '')))
                 const uniqueShops = mappedShops.filter(s => !existingPhones.has(s.phone_number.replace(/\s+/g, '')))
-                
+
                 recipients = [...recipients, ...uniqueShops]
             }
         }
+
+        // Drop recipients with no usable phone number (e.g. the "oauth_<uuid>"
+        // placeholder stored for OAuth signups that never added a real number)
+        // up front, so the job's `total` reflects what will actually be attempted.
+        const PHONE_RE = /^\+?[0-9]{9,15}$/
+        recipients = recipients.filter(r => r.phone_number && PHONE_RE.test(r.phone_number.replace(/\s+/g, '')))
 
         if (!recipients || recipients.length === 0) {
             return NextResponse.json({ error: 'No recipients found with valid phone numbers' }, { status: 400 })
         }
 
-        // Send SMS to recipients
-
-        // Send SMS in parallel batches of 10 to avoid Vercel timeout
-        const results = {
-            total: recipients.length,
-            success: 0,
-            failed: 0,
-            errors: [] as string[]
-        }
-
         const trimmedMessage = message.trim()
-        const BATCH_SIZE = 10
 
-        for (let i = 0; i < (recipients as any[]).length; i += BATCH_SIZE) {
-            const batch = (recipients as any[]).slice(i, i + BATCH_SIZE)
-            await Promise.allSettled(
-                batch.map(async (recipient: any) => {
-                    if (!recipient.phone_number) {
-                        results.failed++
-                        results.errors.push(`${recipient.first_name || 'Unknown'}: No phone number`)
-                        return
-                    }
-                    try {
-                        const result = await sendSMS({ recipient: recipient.phone_number, message: trimmedMessage })
-                        if (result.success) {
-                            results.success++
-                        } else {
-                            results.failed++
-                            results.errors.push(`${recipient.first_name || 'Unknown'}: ${result.error}`)
-                        }
-                    } catch (err: any) {
-                        results.failed++
-                        results.errors.push(`${recipient.first_name || 'Unknown'}: ${err.message}`)
-                    }
-                })
-            )
+        // Large recipient lists (hundreds to thousands) cannot be sent inline —
+        // looping through every recipient synchronously here previously blew
+        // past Vercel's function timeout and silently abandoned whatever was
+        // left unsent. Instead, persist the job and hand sending off to a
+        // self-chaining batch processor (see ./process/route.ts) that survives
+        // any single request dying and can be resumed/polled.
+        const { data: job, error: jobError } = await (supabase
+            .from('sms_broadcast_jobs') as any)
+            .insert({
+                message: trimmedMessage,
+                recipients,
+                total: recipients.length,
+                status: 'pending',
+                created_by: authUser.id,
+            })
+            .select('id')
+            .single()
+
+        if (jobError || !job) {
+            console.error('[SMSBroadcast] Failed to create job:', jobError)
+            return NextResponse.json({ error: 'Failed to queue broadcast' }, { status: 500 })
         }
+
+        const jobId = (job as any).id
+
+        // Kick off the first batch; the processor chains itself from there
+        // until the job is complete.
+        kickSmsBroadcast(request.nextUrl.origin, jobId, 'enqueue')
 
         return NextResponse.json({
             success: true,
-            results
-        })
+            jobId,
+            total: recipients.length,
+        }, { status: 202 })
     } catch (error: any) {
         console.error('[SMSBroadcast] Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })

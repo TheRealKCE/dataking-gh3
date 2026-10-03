@@ -72,6 +72,7 @@ export async function GET(request: Request) {
             'active_payment_provider_shop',
             'active_payment_provider_ussd',
             'active_sms_provider',
+            'active_sms_provider_storefront',
             'rc_wallet_payment_enabled',
             'storefront_rc_enabled',
             'storefront_afa_enabled',

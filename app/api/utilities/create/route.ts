@@ -44,8 +44,11 @@ export async function POST(request: NextRequest) {
         // ── Load the user and this service's settings ─────────────────────────
         const [userResult, settingsResult] = await Promise.all([
             supabase.from('users').select('role, first_name, last_name, email, phone_number').eq('id', userId).single(),
-            ...utilitySurfaceSettingKeys(),
-            supabase.from('admin_settings').select('key, value').in('key', [...utilitySettingKeys(service), UTILITY_LAUNCH_KEY]),
+            supabase.from('admin_settings').select('key, value').in('key', [
+                ...utilitySettingKeys(service),
+                ...utilitySurfaceSettingKeys(),
+                UTILITY_LAUNCH_KEY,
+            ]),
         ])
 
         if (userResult.error || !userResult.data) {

@@ -36,9 +36,11 @@ export default function AdminSMSBroadcastPage() {
     const [message, setMessage] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const [roleFilter, setRoleFilter] = useState<string>('all')
+    const [jobProgress, setJobProgress] = useState<{ sent: number; total: number } | null>(null)
 
     useEffect(() => {
         fetchUsers()
+        resumeActiveJob()
     }, [])
 
     useEffect(() => {
@@ -107,6 +109,69 @@ export default function AdminSMSBroadcastPage() {
         setSelectedUsers(newSelected)
     }
 
+    // Pick tracking back up for a broadcast still running from an earlier visit.
+    // Polling is also what restarts a stalled job server-side, so this is how a
+    // broadcast that stopped part-way gets moving again.
+    const resumeActiveJob = async () => {
+        try {
+            const response = await fetch('/api/admin/sms-broadcast/status?active=1')
+            const data = await response.json()
+            const job = data?.job
+            if (!response.ok || !job) return
+            toast.info(`Resuming broadcast: ${job.sent_count} / ${job.total} sent`)
+            setSending(true)
+            setJobProgress({ sent: job.sent_count, total: job.total })
+            await pollJobStatus(job.id)
+        } catch (error) {
+            console.error('[SMSBroadcast] Could not check for an active broadcast:', error)
+        } finally {
+            setSending(false)
+        }
+    }
+
+    const pollJobStatus = async (jobId: string) => {
+        const POLL_INTERVAL_MS = 2000
+        const MAX_POLLS = 1800 // 60 minutes ceiling
+
+        for (let i = 0; i < MAX_POLLS; i++) {
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+
+            try {
+                const response = await fetch(`/api/admin/sms-broadcast/status?jobId=${jobId}`)
+                const data = await response.json()
+                if (!response.ok) throw new Error(data.error || 'Failed to check status')
+
+                const job = data.job
+                setJobProgress({ sent: job.sent_count, total: job.total })
+
+                if (job.status === 'completed' || job.status === 'failed') {
+                    toast.success(`Broadcast finished: ${job.success_count}/${job.total} delivered`)
+                    if (job.failed_count > 0) {
+                        console.warn('[SMSBroadcast] Failed deliveries:', job.errors)
+                        // Show WHY on the page — "see console" is no answer on a phone.
+                        // Errors read "<name>: <reason>"; group by reason.
+                        const reasons = new Map<string, number>()
+                        for (const e of (job.errors || []) as string[]) {
+                            const reason = String(e).replace(/^[^:]*:\s*/, '')
+                            reasons.set(reason, (reasons.get(reason) || 0) + 1)
+                        }
+                        const top = [...reasons.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+                        toast.error(
+                            `${job.failed_count} message(s) failed to deliver${top ? ` — reason: ${top}` : ''}`,
+                            { duration: 20000 }
+                        )
+                    }
+                    return
+                }
+            } catch (error: any) {
+                console.error('[SMSBroadcast] Status poll failed:', error)
+                // Keep polling — a single failed poll shouldn't abandon tracking.
+            }
+        }
+
+        toast.error('Broadcast is taking longer than expected — check back later, it is still running in the background')
+    }
+
     const handleSendSMS = async () => {
         if (!message.trim()) {
             toast.error('Please enter a message')
@@ -119,6 +184,7 @@ export default function AdminSMSBroadcastPage() {
         }
 
         setSending(true)
+        setJobProgress(null)
         try {
             const response = await fetch('/api/admin/sms-broadcast', {
                 method: 'POST',
@@ -135,15 +201,15 @@ export default function AdminSMSBroadcastPage() {
                 throw new Error(data.error || 'Failed to send SMS')
             }
 
-            toast.success(`SMS sent successfully! ${data.results.success}/${data.results.total} delivered`)
+            toast.success(`Broadcast queued for ${data.total} recipient${data.total !== 1 ? 's' : ''} — sending in the background`)
+            setJobProgress({ sent: 0, total: data.total })
 
-            if (data.results.failed > 0) {
-                console.warn('[SMSBroadcast] Failed deliveries:', data.results.errors)
-            }
-
-            // Clear form
+            // Clear form immediately; the job continues server-side regardless
+            // of whether this tab stays open to watch it.
             setMessage('')
             setSelectedUsers(new Set())
+
+            await pollJobStatus(data.jobId)
         } catch (error: any) {
             console.error('Error sending SMS:', error)
             toast.error(error.message || 'Failed to send SMS')
@@ -231,6 +297,21 @@ export default function AdminSMSBroadcastPage() {
                             )}
                             Send SMS to {selectedUsers.size} Recipient{selectedUsers.size !== 1 ? 's' : ''}
                         </Button>
+
+                        {jobProgress && (
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Sending in background…</span>
+                                    <span>{jobProgress.sent} / {jobProgress.total}</span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                    <div
+                                        className="h-full bg-primary transition-all"
+                                        style={{ width: `${jobProgress.total > 0 ? (jobProgress.sent / jobProgress.total) * 100 : 0}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

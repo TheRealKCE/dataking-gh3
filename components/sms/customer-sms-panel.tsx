@@ -26,6 +26,7 @@ import { SmsCredits } from '@/components/sms/sms-credits'
 import { SmsContacts, type SmsGroup } from '@/components/sms/sms-contacts'
 import { SmsCompose, type AllowedSender } from '@/components/sms/sms-compose'
 import { SmsHistory } from '@/components/sms/sms-history'
+import { SmsOrderSettings } from '@/components/sms/sms-order-settings'
 
 interface AccountInfo {
     enabled: boolean
@@ -45,9 +46,10 @@ interface AccountInfo {
     }
     senderIds: SenderIdRow[]
     allowedSenders: AllowedSender[]
+    orderSms: { data: boolean; airtime: boolean; lastSkip?: string | null; lastSkipAt?: string | null }
 }
 
-const TABS = ['send', 'customers', 'senders', 'credits', 'history'] as const
+const TABS = ['send', 'orders', 'customers', 'senders', 'credits', 'history'] as const
 type Tab = typeof TABS[number]
 
 export interface CustomerSmsPanelProps {
@@ -313,6 +315,7 @@ export function CustomerSmsPanel({ backHref, backLabel = 'Back to Shop', setupHr
                 <div className="overflow-x-auto -mx-1 px-1">
                     <TabsList className="w-max">
                         <TabsTrigger value="send">Send</TabsTrigger>
+                        <TabsTrigger value="orders">Order SMS</TabsTrigger>
                         <TabsTrigger value="customers">Customers</TabsTrigger>
                         <TabsTrigger value="senders">Sender ID</TabsTrigger>
                         <TabsTrigger value="credits">Credits</TabsTrigger>
@@ -328,6 +331,19 @@ export function CustomerSmsPanel({ backHref, backLabel = 'Back to Shop', setupHr
                         contactCount={info.contactCount}
                         onSent={(campaignId) => { loadAccount(); setOpenCampaignId(campaignId); setTab('history') }}
                         onNeedCredits={() => setTab('credits')}
+                        onNeedSender={() => setTab('senders')}
+                    />
+                </TabsContent>
+
+                <TabsContent value="orders" className="mt-4">
+                    <SmsOrderSettings
+                        dataEnabled={info.orderSms?.data ?? false}
+                        airtimeEnabled={info.orderSms?.airtime ?? false}
+                        credits={account.credits}
+                        hasOwnSender={info.allowedSenders.some(s => s.type === 'own')}
+                        lastSkip={info.orderSms?.lastSkip ?? null}
+                        lastSkipAt={info.orderSms?.lastSkipAt ?? null}
+                        onChanged={loadAccount}
                         onNeedSender={() => setTab('senders')}
                     />
                 </TabsContent>

@@ -1095,7 +1095,7 @@ export default function DataPackagesPage() {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-12 w-full max-w-md" />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     {[...Array(8)].map((_, i) => (
                         <Skeleton key={i} className="h-48" />
                     ))}
@@ -1158,7 +1158,7 @@ export default function DataPackagesPage() {
                     <div className="flex-1 min-w-0">
                         <h2 className="text-lg sm:text-xl font-bold leading-tight">Check MTN Number Registration</h2>
                         <p className="text-sm sm:text-base text-muted-foreground mt-0.5">
-                            Not-registered numbers are sent to MTN automatically · up to 1,000 at once
+                            Check on Server 1 or Server 2 · Server 1 sends unregistered numbers to MTN
                         </p>
                     </div>
                     <ExternalLink className="w-6 h-6 text-muted-foreground shrink-0" />
@@ -1634,7 +1634,7 @@ export default function DataPackagesPage() {
                             <p className="text-muted-foreground">No packages found</p>
                         </Card>
                     ) : viewMode === 'grid' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                             {filteredPackages.map((pkg) => {
                                 const getCardStyle = (net: string) => {
                                     switch(net) {
@@ -1664,32 +1664,32 @@ export default function DataPackagesPage() {
                                         )}
                                     >
                                         {/* Top Section */}
-                                        <div className="p-4 relative flex-1 flex flex-col items-center justify-center min-h-[140px]">
+                                        <div className="p-3 sm:p-4 relative flex-1 flex flex-col items-center justify-center min-h-[124px] sm:min-h-[140px]">
                                             {/* Top Left Logo Circle */}
-                                            <div className={cn("absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm", cardStyle.iconBg)}>
+                                            <div className={cn("absolute top-2.5 left-2.5 sm:top-3 sm:left-3 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center backdrop-blur-sm", cardStyle.iconBg)}>
                                                 <div className="w-6 h-6 rounded-full flex items-center justify-center bg-transparent">
                                                     <NetworkIcon network={pkg.network} size={28} />
                                                 </div>
                                             </div>
                                             
                                             {/* Top Right Pill */}
-                                            <div className={cn("absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-black tracking-tight", cardStyle.pill)}>
+                                            <div className={cn("absolute top-2.5 right-2.5 sm:top-3 sm:right-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-black tracking-tight", cardStyle.pill)}>
                                                 {pillText}
                                             </div>
 
                                             {/* Center Content */}
-                                            <div className={cn("text-center mt-8 mb-2 space-y-1 w-full", cardStyle.text)}>
-                                                <h3 className="text-[32px] leading-none font-black tracking-tighter">{pkg.size}</h3>
-                                                <p className="text-lg font-bold">{formatCurrency(getEffectivePrice(pkg))}</p>
+                                            <div className={cn("text-center mt-7 sm:mt-8 mb-1 sm:mb-2 space-y-1 w-full", cardStyle.text)}>
+                                                <h3 className="text-[28px] sm:text-[32px] leading-none font-black tracking-tighter">{pkg.size}</h3>
+                                                <p className="text-base sm:text-lg font-bold">{formatCurrency(getEffectivePrice(pkg))}</p>
                                                 
-                                                <p className="text-[11px] font-semibold opacity-90 mt-1.5 flex items-center justify-center gap-1">
+                                                <p className="text-[10px] sm:text-[11px] font-semibold leading-tight opacity-90 mt-1.5 flex items-center justify-center gap-1">
                                                     <span className="w-1 h-1 rounded-full bg-current opacity-70"></span> {pkg.description && pkg.description !== 'Instant Delivery' ? pkg.description : 'Bundle Valid for 90 Days'}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {/* Bottom Buy Bar */}
-                                        <div className={cn("w-full py-3 flex items-center justify-center gap-2 transition-colors", cardStyle.bottom, cardStyle.text)}>
+                                        <div className={cn("w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 transition-colors", cardStyle.bottom, cardStyle.text)}>
                                             <ShoppingCart className="w-4 h-4" />
                                             <span className="text-sm font-bold tracking-tight">Buy Now</span>
                                         </div>

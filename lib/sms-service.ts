@@ -12,6 +12,11 @@ interface SMSOptions {
     recipient: string
     message: string
     sender?: string
+    /**
+     * Which gateway setting decides this send. Defaults to the main site, so
+     * every existing caller keeps the behaviour it had.
+     */
+    scope?: SmsScope
 }
 
 interface SMSResult {
@@ -44,7 +49,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     }
 
     // Determine active provider from admin_settings (falls back to 'moolre')
-    const provider = await getActiveSmsProvider()
+    const provider = await getActiveSmsProvider(options.scope)
 
     if (provider === 'kingflexy') {
         return sendKingFlexySMS(options)
@@ -64,20 +69,36 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 export type ActiveSmsProvider = 'kingflexy' | 'hubtel' | 'moolre'
 
 /**
- * Reads the active SMS provider from the admin_settings table.
- * Defaults to 'moolre' on any error.
+ * The two independently-routed halves of the platform's SMS.
  *
- * Exported because Customer SMS branches on it before dispatching: KingFlexy
- * takes a whole recipient list in one call, so a campaign there is a handful of
- * requests rather than one per customer.
+ * 'main' is the platform speaking as itself — OTPs, wallet top-ups, upgrades,
+ * main-site order updates — all under one house sender ID.
+ *
+ * 'storefront' is a shop speaking as itself: Customer SMS campaigns and shop
+ * order confirmations, sent under the shop's OWN approved sender ID. That is
+ * why they cannot share one setting — Moolre and Hubtel reject any sender not
+ * registered on the platform's own account, so per-shop senders only work on a
+ * gateway that supports them.
  */
-export async function getActiveSmsProvider(): Promise<ActiveSmsProvider> {
+export type SmsScope = 'main' | 'storefront'
+
+const SCOPE_SETTING_KEY: Record<SmsScope, string> = {
+    main: 'active_sms_provider',
+    storefront: 'active_sms_provider_storefront',
+}
+
+/**
+ * Reads the active SMS provider for a scope from admin_settings.
+ * Defaults to 'moolre' on any error, and for a storefront row that was never
+ * seeded — the caller's capability gate is what stops an own-sender send there.
+ */
+export async function getActiveSmsProvider(scope: SmsScope = 'main'): Promise<ActiveSmsProvider> {
     try {
         const supabase = createServerClient()
         const { data } = await supabase
             .from('admin_settings')
             .select('value')
-            .eq('key', 'active_sms_provider')
+            .eq('key', SCOPE_SETTING_KEY[scope] ?? SCOPE_SETTING_KEY.main)
             .single()
         // The column is JSONB and older rows were written quoted, so a stored
         // "kingflexy" and kingflexy must both match.
@@ -115,7 +136,8 @@ async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
             {
                 recipient,
                 message: options.message,
-                ref: `ref_${Date.now()}`,
+                // Random suffix: parallel sends in the same millisecond must not share a ref.
+                ref: `ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             }
         ]
     }
@@ -154,6 +176,65 @@ async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
     } catch (err: any) {
         console.error('[SMS] Exception:', err.message)
         return { success: false, error: err.message }
+    }
+}
+
+/** Recipients per Moolre call when broadcasting. */
+export const MOOLRE_BULK_BATCH = 100
+
+/**
+ * One message to many recipients in a single Moolre call — their `messages`
+ * array takes a list. The admin broadcast used to make one call per person,
+ * ten at a time, with every ref built from Date.now(): parallel sends in the
+ * same millisecond shared a ref. Each message here gets its own ref.
+ *
+ * Moolre answers per request, not per recipient, so a rejected call fails the
+ * whole batch and `error` says why.
+ */
+export async function sendMoolreBulkSMS(params: {
+    message: string
+    recipients: string[]
+    refPrefix: string
+}): Promise<{ ok: boolean; error?: string }> {
+    const apiKey = process.env.MOOLRE_API_KEY
+    const senderId = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
+    if (!apiKey || apiKey.trim() === '') {
+        console.error('[SMS] MOOLRE_API_KEY not set')
+        return { ok: false, error: 'MOOLRE_API_KEY not configured' }
+    }
+    if (params.recipients.length === 0) return { ok: true }
+
+    const payload = {
+        type: 1,
+        senderid: senderId,
+        messages: params.recipients.map((recipient, i) => ({
+            recipient,
+            message: params.message,
+            ref: `${params.refPrefix}_${i}`.slice(0, 60),
+        })),
+    }
+
+    try {
+        const response = await fetch(MOOLRE_URL, {
+            method: 'POST',
+            headers: { 'X-API-VASKEY': apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(20_000),
+        })
+        const text = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(text)
+        } catch {
+            console.error('[SMS] Moolre bulk non-JSON response:', response.status, text.substring(0, 200))
+            return { ok: false, error: `Invalid response from Moolre (HTTP ${response.status})` }
+        }
+        console.log('[SMS] Moolre bulk response:', response.status, params.recipients.length, 'recipients', JSON.stringify(data).slice(0, 300))
+        if (data.status === 1 || data.code === 'SMS01') return { ok: true }
+        return { ok: false, error: `${data.code ?? `HTTP ${response.status}`}: ${data.message ?? 'Send failed'}` }
+    } catch (err: any) {
+        console.error('[SMS] Moolre bulk exception:', err?.message)
+        return { ok: false, error: err?.message || 'Could not reach Moolre' }
     }
 }
 

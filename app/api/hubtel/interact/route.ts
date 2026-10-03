@@ -14,6 +14,7 @@ import {
     resolvePayerProvider,
     submitOtp,
     toAsciiSafe,
+    WEB_CHARGE_TIMEOUT_MS,
 } from '@/lib/paystack-momo-service';
 import { resolveProviderForScope, SCOPE_SETTING_KEY, type PaymentProvider } from '@/lib/payment-provider';
 import { buildUssdReference } from '@/lib/ussd-reference';
@@ -58,6 +59,12 @@ export const runtime = 'edge';
 const PAGE_SIZE = 5;
 /** Wrong short codes tolerated before we hang up, so a wrong-number dialler can't loop forever. */
 const MAX_CODE_ATTEMPTS = 3;
+/**
+ * How long to wait after releasing an MTN session before charging. The network
+ * needs a moment to tear the USSD session down; a prompt pushed before then is
+ * parked in pending approvals instead of popping up.
+ */
+const USSD_PROMPT_DELAY_MS = 3000;
 
 // Lazy-load Supabase client to avoid blocking on module import
 let supabaseAdmin: any = null;
@@ -675,39 +682,69 @@ export async function POST(req: Request) {
                     return respond(SessionId, 'release', 'System busy. Please dial again in a moment.');
                 }
 
-                const chargeStart = Date.now();
-                const charge = await chargeMobileMoney({
-                    reference,
-                    amountGhs: price,
-                    payerMsisdn,
-                    provider,
-                    metadata: {
-                        channel: 'ussd',
-                        session_id: SessionId,
-                        order_type: orderType,
-                        payer_msisdn: payerMsisdn,
-                        // ASCII only: the item name is echoed back to Hubtel on some
-                        // paths, and a multi-byte character there makes the call throw.
-                        item_name: toAsciiSafe(sessionData.itemName, 'ARHMS order'),
-                        shop_id: sessionData.shopId ?? null,
-                    },
-                });
-                console.log('[Hubtel Interact] Paystack charge took', Date.now() - chargeStart, 'ms,', 'outcome:', charge.outcome, 'ref:', reference);
+                const startCharge = async (timeoutMs?: number) => {
+                    const chargeStart = Date.now();
+                    const result = await chargeMobileMoney({
+                        reference,
+                        amountGhs: price,
+                        payerMsisdn,
+                        provider,
+                        timeoutMs,
+                        metadata: {
+                            channel: 'ussd',
+                            session_id: SessionId,
+                            order_type: orderType,
+                            payer_msisdn: payerMsisdn,
+                            // ASCII only: the item name is echoed back to Hubtel on some
+                            // paths, and a multi-byte character there makes the call throw.
+                            item_name: toAsciiSafe(sessionData.itemName, 'ARHMS order'),
+                            shop_id: sessionData.shopId ?? null,
+                        },
+                    });
+                    console.log('[Hubtel Interact] Paystack charge took', Date.now() - chargeStart, 'ms,', 'outcome:', result.outcome, 'ref:', reference);
 
-                // Fail-open audit row. The webhook and the cron both upsert onto this
-                // same client_reference, so this is the first write of three.
-                waitUntil(
-                    logInitiate({
+                    // Fail-open audit row. The webhook and the cron both upsert onto this
+                    // same client_reference, so this is the first write of three.
+                    await logInitiate({
                         clientReference: reference,
-                        status: charge.outcome === 'paid' ? 'success' : charge.outcome === 'failed' ? 'failed' : 'pending',
+                        status: result.outcome === 'paid' ? 'success' : result.outcome === 'failed' ? 'failed' : 'pending',
                         amount: price,
                         channel: provider,
                         payerMsisdn,
-                        responseCode: charge.rawStatus,
-                        message: charge.message,
-                        raw: charge.raw,
-                    })
-                );
+                        responseCode: result.rawStatus,
+                        message: result.message,
+                        raw: result.raw,
+                    }).catch((err: any) => console.error('[Hubtel Interact] logInitiate failed:', err?.message));
+                    return result;
+                };
+
+                // ── MTN: hang up FIRST, charge after ─────────────────────────────
+                // A handset cannot show a pushed MoMo prompt while it is still inside
+                // a USSD session. Charging before we release made MTN park the prompt
+                // in pending approvals instead of popping it up. MTN never answers
+                // send_otp, so nothing needs the session open: release now, wait for
+                // the network to tear the session down, then charge so the PIN prompt
+                // lands on an idle phone. With no Hubtel window to answer any more,
+                // the charge gets the web budget instead of the 6s USSD one.
+                if (payerNetwork === 'MTN') {
+                    waitUntil((async () => {
+                        await new Promise(resolve => setTimeout(resolve, USSD_PROMPT_DELAY_MS));
+                        const result = await startCharge(WEB_CHARGE_TIMEOUT_MS);
+                        if (result.outcome === 'failed') {
+                            console.error('[Hubtel Interact] Background MTN charge refused:', result.message, 'ref:', reference);
+                            endSession(SessionId);
+                        }
+                    })());
+                    return respond(
+                        SessionId,
+                        'release',
+                        `A MoMo prompt is coming now to pay GHS ${formatGhs(price)}. Enter your PIN to approve. You will get an SMS when done.`
+                    );
+                }
+
+                // Telecel / AirtelTigo may answer send_otp, and the code has to be
+                // typed into THIS session — so they keep the in-session charge.
+                const charge = await startCharge();
 
                 switch (charge.outcome) {
                     case 'otp':
@@ -1031,7 +1068,7 @@ function normalizeGhanaPhone(input: string): string | null {
  */
 function approvalInstruction(network: string | null): string {
     if (network === 'MTN') {
-        return 'Approve the prompt to pay. No prompt? Dial *170#, choose My Approvals. You get an SMS when done.';
+        return 'Enter your MoMo PIN on the prompt to pay. You will get an SMS when done.';
     }
     return 'Approve the payment prompt on your phone. You will get an SMS once it is done.';
 }

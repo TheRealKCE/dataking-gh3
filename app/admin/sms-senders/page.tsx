@@ -23,7 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2, MessageSquare, Plus, Trash2, Save, ExternalLink, AlertTriangle, Coins } from 'lucide-react'
+import { Loader2, MessageSquare, Plus, Trash2, Save, ExternalLink, AlertTriangle, Coins, Search, Store, UserPlus } from 'lucide-react'
+import { validateSenderId, SENDER_ID_MAX } from '@/lib/sms/sms-rules'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +47,18 @@ interface SenderRequest {
         user: { first_name: string | null; last_name: string | null; email: string | null; phone_number: string | null } | null
         shop: { shop_name: string | null; shop_slug: string | null } | null
     }
+}
+
+interface ShopHit {
+    id: string
+    shopName: string | null
+    shopSlug: string | null
+    approvalStatus: string
+    ownerId: string
+    ownerName: string | null
+    ownerPhone: string | null
+    /** null when the shop has never opened Customer SMS. */
+    accountStatus: 'locked' | 'active' | 'suspended' | null
 }
 
 interface Bundle {
@@ -104,6 +117,17 @@ function SenderQueue() {
     const [rejecting, setRejecting] = useState<SenderRequest | null>(null)
     const [reason, setReason] = useState('')
 
+    // "Add for a shop" — the other direction from the request queue, for when the
+    // name is already registered at the provider and ARHMS just has to agree.
+    const [addOpen, setAddOpen] = useState(false)
+    const [shopQuery, setShopQuery] = useState('')
+    const [shopResults, setShopResults] = useState<ShopHit[]>([])
+    const [searching, setSearching] = useState(false)
+    const [picked, setPicked] = useState<ShopHit | null>(null)
+    const [newSender, setNewSender] = useState('')
+    const [newStatus, setNewStatus] = useState<'approved' | 'submitted' | 'pending'>('approved')
+    const [adding, setAdding] = useState(false)
+
     const load = useCallback(async () => {
         setLoading(true)
         try {
@@ -125,6 +149,60 @@ function SenderQueue() {
     }, [status])
 
     useEffect(() => { load() }, [load])
+
+    // Debounced by the effect below; the endpoint caps at 20 hits.
+    const searchShops = useCallback(async (q: string) => {
+        if (q.trim().length < 2) { setShopResults([]); return }
+        setSearching(true)
+        try {
+            const res = await fetch(`/api/admin/sms-senders?lookup=${encodeURIComponent(q.trim())}`, { cache: 'no-store' })
+            const data = await res.json()
+            if (data?.success) setShopResults(data.shops || [])
+        } catch {
+            toast.error('Shop search failed')
+        } finally {
+            setSearching(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!addOpen) return
+        const t = setTimeout(() => searchShops(shopQuery), 300)
+        return () => clearTimeout(t)
+    }, [addOpen, shopQuery, searchShops])
+
+    const addSender = async () => {
+        if (!picked) { toast.error('Choose a shop first'); return }
+        const check = validateSenderId(newSender)
+        if (!check.ok) { toast.error(check.error); return }
+
+        setAdding(true)
+        try {
+            const res = await fetch('/api/admin/sms-senders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shopId: picked.id, sender: newSender.trim(), status: newStatus }),
+            })
+            const data = await res.json()
+            if (!res.ok || !data?.success) { toast.error(data?.error || 'Could not add the sender ID'); return }
+
+            toast.success(`${newSender.trim()} added for ${picked.shopName}`)
+            if (data.accountStatus !== 'active') {
+                toast.info('That shop has not unlocked Customer SMS yet, so it cannot send until they do.')
+            }
+            setAddOpen(false)
+            setPicked(null)
+            setNewSender('')
+            setShopQuery('')
+            setShopResults([])
+            setStatus(newStatus)
+            load()
+        } catch {
+            toast.error('Something went wrong. Please try again.')
+        } finally {
+            setAdding(false)
+        }
+    }
 
     const transition = async (row: SenderRequest, next: SenderStatus, rejectionReason?: string) => {
         setBusyId(row.id)
@@ -180,6 +258,16 @@ function SenderQueue() {
                     </CardContent>
                 </Card>
             )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                    Shops request sender IDs here. You can also add one yourself — useful once the name is
+                    registered on the ARHMS KingFlexy account.
+                </p>
+                <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={() => setAddOpen(true)}>
+                    <UserPlus className="w-4 h-4" /> Add sender ID for a shop
+                </Button>
+            </div>
 
             <div className="flex flex-wrap gap-2">
                 {STATUS_TABS.map((t) => (
@@ -244,6 +332,131 @@ function SenderQueue() {
                     </Card>
                 )
             })}
+
+            <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) { setPicked(null); setShopQuery(''); setShopResults([]) } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add a sender ID for a shop</DialogTitle>
+                        <DialogDescription>
+                            Creates the sender ID on the shop&apos;s behalf. Approving it here does NOT register it with
+                            the networks — do that on the KingFlexy account first, or its sends will be refused.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="space-y-2">
+                            <Label>Shop</Label>
+                            {picked ? (
+                                <div className="flex items-center justify-between gap-2 rounded-xl border p-3">
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-sm truncate">{picked.shopName}</p>
+                                        <p className="text-xs text-muted-foreground truncate">
+                                            {picked.ownerName || 'Unknown owner'} · {picked.ownerPhone || 'no phone'} ·{' '}
+                                            {picked.accountStatus
+                                                ? `SMS ${picked.accountStatus}`
+                                                : 'never opened Customer SMS'}
+                                        </p>
+                                    </div>
+                                    <Button size="sm" variant="ghost" onClick={() => setPicked(null)}>Change</Button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Input
+                                            value={shopQuery}
+                                            onChange={(e) => setShopQuery(e.target.value)}
+                                            placeholder="Search by shop name or slug"
+                                            className="pl-9"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    {searching && <p className="text-xs text-muted-foreground">Searching…</p>}
+                                    {!searching && shopQuery.trim().length >= 2 && shopResults.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">No shops match.</p>
+                                    )}
+                                    {shopResults.length > 0 && (
+                                        <div className="max-h-56 overflow-y-auto divide-y rounded-xl border">
+                                            {shopResults.map((hit) => (
+                                                <button
+                                                    key={hit.id}
+                                                    type="button"
+                                                    onClick={() => setPicked(hit)}
+                                                    className="w-full text-left p-2.5 hover:bg-muted/60 flex items-center gap-2"
+                                                >
+                                                    <Store className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                    <span className="min-w-0">
+                                                        <span className="block text-sm font-semibold truncate">{hit.shopName}</span>
+                                                        <span className="block text-[11px] text-muted-foreground truncate">
+                                                            {hit.ownerName || 'Unknown owner'} ·{' '}
+                                                            {hit.accountStatus ? `SMS ${hit.accountStatus}` : 'no SMS account yet'}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Sender ID</Label>
+                            <Input
+                                value={newSender}
+                                onChange={(e) => setNewSender(e.target.value.slice(0, SENDER_ID_MAX))}
+                                placeholder="e.g. KofiStores"
+                                maxLength={SENDER_ID_MAX}
+                            />
+                            <div className="flex justify-between text-xs">
+                                <span className={newSender.trim() && !validateSenderId(newSender).ok ? 'text-red-600' : 'text-emerald-600'}>
+                                    {newSender.trim() ? (validateSenderId(newSender).ok ? 'Looks good' : validateSenderId(newSender).error) : ''}
+                                </span>
+                                <span className="text-muted-foreground">{newSender.length}/{SENDER_ID_MAX}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Status</Label>
+                            <div className="flex rounded-lg border overflow-hidden">
+                                {([
+                                    { value: 'approved' as const, label: 'Approved', hint: 'Live now' },
+                                    { value: 'submitted' as const, label: 'Submitted', hint: 'With the networks' },
+                                    { value: 'pending' as const, label: 'Pending', hint: 'Review later' },
+                                ]).map((opt, i) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setNewStatus(opt.value)}
+                                        className={cn(
+                                            'flex-1 px-3 py-2 text-sm font-medium transition-colors',
+                                            i > 0 && 'border-l',
+                                            newStatus === opt.value ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {newStatus === 'approved' && (
+                                <p className="text-[11px] text-muted-foreground">
+                                    The shop is told by SMS and in-app, and this becomes their default sender if they have no other.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            onClick={addSender}
+                            disabled={adding || !picked || !validateSenderId(newSender).ok}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                            {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add sender ID'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={!!rejecting} onOpenChange={(open) => !open && setRejecting(null)}>
                 <DialogContent>
