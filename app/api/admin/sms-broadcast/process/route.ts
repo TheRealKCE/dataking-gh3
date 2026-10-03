@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { createServerClient } from '@/lib/supabase'
-import { sendSMS, getActiveSmsProvider, normalizeGhanaPhone } from '@/lib/sms-service'
+import { sendSMS, getActiveSmsProvider, normalizeGhanaPhone, sendMoolreBulkSMS, MOOLRE_BULK_BATCH } from '@/lib/sms-service'
 import { sendKingFlexyBulkSMS, isKingFlexySmsConfigured, KF_INLINE_RECIPIENTS } from '@/lib/kingflexy-sms-service'
 import { triggerSmsBroadcast } from '@/lib/sms-broadcast-kick'
 import { z } from 'zod'
@@ -59,14 +59,18 @@ async function runBatches(jobId: string, origin: string): Promise<void> {
     const supabase = createServerClient()
     const startedAt = Date.now()
 
-    // KingFlexy takes a whole list in one call. Sending it one person at a time
-    // meant 2627 separate requests for one broadcast — slow, and a handful of
-    // gateway failures tripped the client's circuit breaker, after which every
-    // remaining recipient failed instantly. In bulk mode a 2627-person broadcast
-    // is six calls. isKingFlexySmsConfigured() is the capability half: the
-    // setting can name a gateway whose key was never added.
-    const bulk = (await getActiveSmsProvider('main')) === 'kingflexy' && isKingFlexySmsConfigured()
-    const batchSize = bulk ? KF_INLINE_RECIPIENTS : BATCH_SIZE
+    // KingFlexy and Moolre both take a whole list in one call. Sending one person
+    // at a time meant 2627 separate requests for one broadcast — slow, rate-limit
+    // bait, and (on KingFlexy) a handful of failures tripped the client's circuit
+    // breaker so every remaining recipient failed instantly.
+    // isKingFlexySmsConfigured() is the capability half: the setting can name a
+    // gateway whose key was never added. Hubtel stays one-by-one.
+    const provider = await getActiveSmsProvider('main')
+    const bulk: 'kingflexy' | 'moolre' | null =
+        provider === 'kingflexy' && isKingFlexySmsConfigured() ? 'kingflexy'
+            : provider === 'moolre' && process.env.SMS_ENABLED !== 'false' ? 'moolre'
+                : null
+    const batchSize = bulk === 'kingflexy' ? KF_INLINE_RECIPIENTS : bulk === 'moolre' ? MOOLRE_BULK_BATCH : BATCH_SIZE
 
     while (Date.now() - startedAt < INVOCATION_BUDGET_MS) {
         const { data: jobRaw, error: jobError } = await (supabase
@@ -135,7 +139,20 @@ async function runBatches(jobId: string, origin: string): Promise<void> {
                     batchErrors.push(`${recipient.first_name || 'Unknown'}: invalid phone number ${recipient.phone_number || '(none)'}`)
                 }
             }
-            if (numbers.length > 0) {
+            if (numbers.length > 0 && bulk === 'moolre') {
+                const result = await sendMoolreBulkSMS({
+                    message: job.message,
+                    recipients: numbers,
+                    refPrefix: `bc${String(jobId).slice(0, 8)}_${alreadyProcessed}`,
+                })
+                if (result.ok) {
+                    batchSuccess += numbers.length
+                } else {
+                    batchFailed += numbers.length
+                    batchErrors.push(`${numbers.length} recipients: ${result.error || 'Send failed'}`)
+                    console.error('[SMSBroadcastProcess] Moolre bulk send failed:', jobId, result.error)
+                }
+            } else if (numbers.length > 0) {
                 const result = await sendKingFlexyBulkSMS({
                     message: job.message,
                     recipients: numbers,

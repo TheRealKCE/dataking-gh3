@@ -136,7 +136,8 @@ async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
             {
                 recipient,
                 message: options.message,
-                ref: `ref_${Date.now()}`,
+                // Random suffix: parallel sends in the same millisecond must not share a ref.
+                ref: `ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             }
         ]
     }
@@ -175,6 +176,65 @@ async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
     } catch (err: any) {
         console.error('[SMS] Exception:', err.message)
         return { success: false, error: err.message }
+    }
+}
+
+/** Recipients per Moolre call when broadcasting. */
+export const MOOLRE_BULK_BATCH = 100
+
+/**
+ * One message to many recipients in a single Moolre call — their `messages`
+ * array takes a list. The admin broadcast used to make one call per person,
+ * ten at a time, with every ref built from Date.now(): parallel sends in the
+ * same millisecond shared a ref. Each message here gets its own ref.
+ *
+ * Moolre answers per request, not per recipient, so a rejected call fails the
+ * whole batch and `error` says why.
+ */
+export async function sendMoolreBulkSMS(params: {
+    message: string
+    recipients: string[]
+    refPrefix: string
+}): Promise<{ ok: boolean; error?: string }> {
+    const apiKey = process.env.MOOLRE_API_KEY
+    const senderId = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
+    if (!apiKey || apiKey.trim() === '') {
+        console.error('[SMS] MOOLRE_API_KEY not set')
+        return { ok: false, error: 'MOOLRE_API_KEY not configured' }
+    }
+    if (params.recipients.length === 0) return { ok: true }
+
+    const payload = {
+        type: 1,
+        senderid: senderId,
+        messages: params.recipients.map((recipient, i) => ({
+            recipient,
+            message: params.message,
+            ref: `${params.refPrefix}_${i}`.slice(0, 60),
+        })),
+    }
+
+    try {
+        const response = await fetch(MOOLRE_URL, {
+            method: 'POST',
+            headers: { 'X-API-VASKEY': apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(20_000),
+        })
+        const text = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(text)
+        } catch {
+            console.error('[SMS] Moolre bulk non-JSON response:', response.status, text.substring(0, 200))
+            return { ok: false, error: `Invalid response from Moolre (HTTP ${response.status})` }
+        }
+        console.log('[SMS] Moolre bulk response:', response.status, params.recipients.length, 'recipients', JSON.stringify(data).slice(0, 300))
+        if (data.status === 1 || data.code === 'SMS01') return { ok: true }
+        return { ok: false, error: `${data.code ?? `HTTP ${response.status}`}: ${data.message ?? 'Send failed'}` }
+    } catch (err: any) {
+        console.error('[SMS] Moolre bulk exception:', err?.message)
+        return { ok: false, error: err?.message || 'Could not reach Moolre' }
     }
 }
 
