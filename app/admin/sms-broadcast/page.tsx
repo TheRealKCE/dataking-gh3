@@ -40,6 +40,7 @@ export default function AdminSMSBroadcastPage() {
 
     useEffect(() => {
         fetchUsers()
+        resumeActiveJob()
     }, [])
 
     useEffect(() => {
@@ -108,9 +109,29 @@ export default function AdminSMSBroadcastPage() {
         setSelectedUsers(newSelected)
     }
 
+    // Pick tracking back up for a broadcast still running from an earlier visit.
+    // Polling is also what restarts a stalled job server-side, so this is how a
+    // broadcast that stopped part-way gets moving again.
+    const resumeActiveJob = async () => {
+        try {
+            const response = await fetch('/api/admin/sms-broadcast/status?active=1')
+            const data = await response.json()
+            const job = data?.job
+            if (!response.ok || !job) return
+            toast.info(`Resuming broadcast: ${job.sent_count} / ${job.total} sent`)
+            setSending(true)
+            setJobProgress({ sent: job.sent_count, total: job.total })
+            await pollJobStatus(job.id)
+        } catch (error) {
+            console.error('[SMSBroadcast] Could not check for an active broadcast:', error)
+        } finally {
+            setSending(false)
+        }
+    }
+
     const pollJobStatus = async (jobId: string) => {
         const POLL_INTERVAL_MS = 2000
-        const MAX_POLLS = 600 // 20 minutes ceiling
+        const MAX_POLLS = 1800 // 60 minutes ceiling
 
         for (let i = 0; i < MAX_POLLS; i++) {
             await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))

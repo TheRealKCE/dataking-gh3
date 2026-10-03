@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { kickSmsBroadcast } from '@/lib/sms-broadcast-kick'
 import { z } from 'zod'
 import { adminLongTextSchema } from '@/lib/validation'
 import { Ratelimit } from '@upstash/ratelimit'
@@ -203,20 +204,9 @@ export async function POST(request: NextRequest) {
 
         const jobId = (job as any).id
 
-        // Fire-and-forget: kick off the first batch. We deliberately do not
-        // await this — the processor chains itself batch-by-batch via its own
-        // fire-and-forget calls until the job is complete. This is a
-        // server-to-server call with no browser session to forward, so it
-        // authenticates with CRON_SECRET instead (see middleware.ts).
-        const origin = request.nextUrl.origin
-        fetch(`${origin}/api/admin/sms-broadcast/process`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-            },
-            body: JSON.stringify({ jobId }),
-        }).catch(err => console.error('[SMSBroadcast] Failed to start batch processor:', err))
+        // Kick off the first batch; the processor chains itself from there
+        // until the job is complete.
+        kickSmsBroadcast(request.nextUrl.origin, jobId, 'enqueue')
 
         return NextResponse.json({
             success: true,

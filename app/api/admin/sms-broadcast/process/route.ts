@@ -1,40 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { createServerClient } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms-service'
+import { triggerSmsBroadcast } from '@/lib/sms-broadcast-kick'
 import { z } from 'zod'
 
 // Vercel Hobby plan has no cron headroom for a "poll every N minutes" worker,
 // and the old inline-loop approach timed out on large lists (see sms-broadcast
-// route.ts). Instead each invocation sends one batch, then fires a
-// fire-and-forget request at itself for the next batch — the job keeps moving
-// forward across many short-lived invocations instead of one long one.
+// route.ts). Instead each invocation sends batches for a bounded time, then
+// fires a request at itself to carry on — the job keeps moving forward across
+// many short-lived invocations instead of one long one.
+//
+// The work runs inside waitUntil and the route answers immediately. That keeps
+// each hop independent: the caller's request completes in milliseconds, so no
+// invocation is ever held open waiting on the rest of the chain.
+export const maxDuration = 60
+
 const BATCH_SIZE = 10
 const MAX_ERRORS_STORED = 200
+/** Stop starting new batches after this long and hand over to a fresh invocation. */
+const INVOCATION_BUDGET_MS = 25_000
 
 const processSchema = z.object({
     jobId: z.string().uuid(),
 })
 
 export async function POST(request: NextRequest) {
-    try {
-        // Defense in depth: middleware.ts already gates this exact path on the
-        // same header before the request reaches here. Checked again in case
-        // that config ever drifts — this route moves real SMS spend and must
-        // never be reachable without the shared secret.
-        const authHeader = request.headers.get('authorization')
-        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
+    // Defense in depth: middleware.ts already gates this exact path on the
+    // same header before the request reaches here. Checked again in case
+    // that config ever drifts — this route moves real SMS spend and must
+    // never be reachable without the shared secret.
+    const authHeader = request.headers.get('authorization')
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-        const body = await request.json()
-        const parsed = processSchema.safeParse(body)
-        if (!parsed.success) {
-            return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
-        }
-        const { jobId } = parsed.data
+    const body = await request.json().catch(() => null)
+    const parsed = processSchema.safeParse(body)
+    if (!parsed.success) {
+        return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+    }
+    const { jobId } = parsed.data
+    const origin = request.nextUrl.origin
 
-        const supabase = createServerClient()
+    waitUntil(
+        runBatches(jobId, origin).catch(err => {
+            // The status poll restarts a job that stops moving, so a crash here
+            // costs a pause, not the broadcast.
+            console.error('[SMSBroadcastProcess] Run failed:', jobId, err)
+        })
+    )
 
+    return NextResponse.json({ accepted: true }, { status: 202 })
+}
+
+async function runBatches(jobId: string, origin: string): Promise<void> {
+    const supabase = createServerClient()
+    const startedAt = Date.now()
+
+    while (Date.now() - startedAt < INVOCATION_BUDGET_MS) {
         const { data: jobRaw, error: jobError } = await (supabase
             .from('sms_broadcast_jobs') as any)
             .select('*')
@@ -43,32 +67,47 @@ export async function POST(request: NextRequest) {
 
         if (jobError || !jobRaw) {
             console.error('[SMSBroadcastProcess] Job not found:', jobId, jobError)
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+            return
         }
 
         const job = jobRaw as any
+        if (job.status === 'completed' || job.status === 'failed') return
 
-        if (job.status === 'completed' || job.status === 'failed') {
-            // Already finished (or a duplicate chained call arrived) — no-op.
-            return NextResponse.json({ success: true, status: job.status })
-        }
-
-        const recipients: any[] = job.recipients
-        const alreadyProcessed = job.sent_count
+        const recipients: any[] = job.recipients || []
+        const alreadyProcessed: number = job.sent_count || 0
         const batch = recipients.slice(alreadyProcessed, alreadyProcessed + BATCH_SIZE)
 
         if (batch.length === 0) {
-            // Nothing left — mark complete.
             await (supabase.from('sms_broadcast_jobs') as any)
                 .update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
                 .eq('id', jobId)
-            return NextResponse.json({ success: true, status: 'completed' })
+            return
         }
 
-        if (job.status === 'pending') {
-            await (supabase.from('sms_broadcast_jobs') as any)
-                .update({ status: 'processing', updated_at: new Date().toISOString() })
-                .eq('id', jobId)
+        // Claim the batch BEFORE sending it. Only the invocation whose update
+        // still sees the old sent_count wins; a duplicate (a restart from the
+        // status poll racing a chained hop) matches no row and backs off, so no
+        // recipient is ever texted twice.
+        const newSentCount = alreadyProcessed + batch.length
+        const isDone = newSentCount >= recipients.length
+        const { data: claimed, error: claimError } = await (supabase
+            .from('sms_broadcast_jobs') as any)
+            .update({
+                sent_count: newSentCount,
+                status: 'processing',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', jobId)
+            .eq('sent_count', alreadyProcessed)
+            .select('id')
+
+        if (claimError) {
+            console.error('[SMSBroadcastProcess] Claim failed:', jobId, claimError)
+            return
+        }
+        if (!claimed || claimed.length === 0) {
+            // Someone else is already on this batch.
+            return
         }
 
         let batchSuccess = 0
@@ -92,46 +131,30 @@ export async function POST(request: NextRequest) {
             })
         )
 
-        const newSentCount = alreadyProcessed + batch.length
-        const newSuccessCount = job.success_count + batchSuccess
-        const newFailedCount = job.failed_count + batchFailed
-        const combinedErrors = [...(job.errors || []), ...batchErrors].slice(-MAX_ERRORS_STORED)
-        const isDone = newSentCount >= recipients.length
+        // Re-read the counters right before writing them: only the claim holder
+        // writes them, but reading fresh keeps a slow batch from overwriting a
+        // newer total.
+        const { data: fresh } = await (supabase
+            .from('sms_broadcast_jobs') as any)
+            .select('success_count, failed_count, errors')
+            .eq('id', jobId)
+            .single()
 
+        const base = (fresh as any) || job
         await (supabase.from('sms_broadcast_jobs') as any)
             .update({
-                sent_count: newSentCount,
-                success_count: newSuccessCount,
-                failed_count: newFailedCount,
-                errors: combinedErrors,
+                success_count: (base.success_count || 0) + batchSuccess,
+                failed_count: (base.failed_count || 0) + batchFailed,
+                errors: [...(base.errors || []), ...batchErrors].slice(-MAX_ERRORS_STORED),
                 status: isDone ? 'completed' : 'processing',
                 completed_at: isDone ? new Date().toISOString() : null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', jobId)
 
-        if (!isDone) {
-            // Chain the next batch. Fire-and-forget so this invocation can
-            // return quickly instead of waiting on the entire remaining job.
-            const origin = request.nextUrl.origin
-            fetch(`${origin}/api/admin/sms-broadcast/process`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-                },
-                body: JSON.stringify({ jobId }),
-            }).catch(err => console.error('[SMSBroadcastProcess] Failed to chain next batch:', err))
-        }
-
-        return NextResponse.json({
-            success: true,
-            status: isDone ? 'completed' : 'processing',
-            sent: newSentCount,
-            total: recipients.length,
-        })
-    } catch (error: any) {
-        console.error('[SMSBroadcastProcess] Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        if (isDone) return
     }
+
+    // Out of time for this invocation — hand the rest to a fresh one.
+    await triggerSmsBroadcast(origin, jobId, 'process')
 }
