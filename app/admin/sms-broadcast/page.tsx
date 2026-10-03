@@ -148,7 +148,18 @@ export default function AdminSMSBroadcastPage() {
                     toast.success(`Broadcast finished: ${job.success_count}/${job.total} delivered`)
                     if (job.failed_count > 0) {
                         console.warn('[SMSBroadcast] Failed deliveries:', job.errors)
-                        toast.error(`${job.failed_count} message(s) failed to deliver — see console`)
+                        // Show WHY on the page — "see console" is no answer on a phone.
+                        // Errors read "<name>: <reason>"; group by reason.
+                        const reasons = new Map<string, number>()
+                        for (const e of (job.errors || []) as string[]) {
+                            const reason = String(e).replace(/^[^:]*:\s*/, '')
+                            reasons.set(reason, (reasons.get(reason) || 0) + 1)
+                        }
+                        const top = [...reasons.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+                        toast.error(
+                            `${job.failed_count} message(s) failed to deliver${top ? ` — reason: ${top}` : ''}`,
+                            { duration: 20000 }
+                        )
                     }
                     return
                 }

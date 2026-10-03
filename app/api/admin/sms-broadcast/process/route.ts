@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { createServerClient } from '@/lib/supabase'
-import { sendSMS } from '@/lib/sms-service'
+import { sendSMS, getActiveSmsProvider, normalizeGhanaPhone } from '@/lib/sms-service'
+import { sendKingFlexyBulkSMS, isKingFlexySmsConfigured, KF_INLINE_RECIPIENTS } from '@/lib/kingflexy-sms-service'
 import { triggerSmsBroadcast } from '@/lib/sms-broadcast-kick'
 import { z } from 'zod'
 
@@ -58,6 +59,15 @@ async function runBatches(jobId: string, origin: string): Promise<void> {
     const supabase = createServerClient()
     const startedAt = Date.now()
 
+    // KingFlexy takes a whole list in one call. Sending it one person at a time
+    // meant 2627 separate requests for one broadcast — slow, and a handful of
+    // gateway failures tripped the client's circuit breaker, after which every
+    // remaining recipient failed instantly. In bulk mode a 2627-person broadcast
+    // is six calls. isKingFlexySmsConfigured() is the capability half: the
+    // setting can name a gateway whose key was never added.
+    const bulk = (await getActiveSmsProvider('main')) === 'kingflexy' && isKingFlexySmsConfigured()
+    const batchSize = bulk ? KF_INLINE_RECIPIENTS : BATCH_SIZE
+
     while (Date.now() - startedAt < INVOCATION_BUDGET_MS) {
         const { data: jobRaw, error: jobError } = await (supabase
             .from('sms_broadcast_jobs') as any)
@@ -75,7 +85,7 @@ async function runBatches(jobId: string, origin: string): Promise<void> {
 
         const recipients: any[] = job.recipients || []
         const alreadyProcessed: number = job.sent_count || 0
-        const batch = recipients.slice(alreadyProcessed, alreadyProcessed + BATCH_SIZE)
+        const batch = recipients.slice(alreadyProcessed, alreadyProcessed + batchSize)
 
         if (batch.length === 0) {
             await (supabase.from('sms_broadcast_jobs') as any)
@@ -114,7 +124,35 @@ async function runBatches(jobId: string, origin: string): Promise<void> {
         let batchFailed = 0
         const batchErrors: string[] = []
 
-        await Promise.allSettled(
+        if (bulk) {
+            const numbers: string[] = []
+            for (const recipient of batch) {
+                const phone = normalizeGhanaPhone(String(recipient.phone_number || ''))
+                if (phone) {
+                    numbers.push(phone)
+                } else {
+                    batchFailed++
+                    batchErrors.push(`${recipient.first_name || 'Unknown'}: invalid phone number ${recipient.phone_number || '(none)'}`)
+                }
+            }
+            if (numbers.length > 0) {
+                const result = await sendKingFlexyBulkSMS({
+                    message: job.message,
+                    recipients: numbers,
+                    // Their idempotency key: a re-run of this same slice returns the
+                    // original campaign instead of texting everyone twice.
+                    reference: `arhms_bc_${jobId}_${alreadyProcessed}`.slice(0, 100),
+                })
+                if (result.ok) {
+                    batchSuccess += result.sent
+                    batchFailed += result.failed
+                } else {
+                    batchFailed += numbers.length
+                    batchErrors.push(`${numbers.length} recipients: ${result.outOfCredits ? 'KingFlexy SMS credits exhausted - top up at kingflexygh.com' : (result.error || 'Send failed')}`)
+                    console.error('[SMSBroadcastProcess] Bulk send failed:', jobId, result.error)
+                }
+            }
+        } else await Promise.allSettled(
             batch.map(async (recipient: any) => {
                 try {
                     const result = await sendSMS({ recipient: recipient.phone_number, message: job.message })
