@@ -166,7 +166,7 @@ export function PromoHeroCarousel({ role, phoneVerified }: PromoHeroCarouselProp
                                     {slide.description}
                                 </p>
                                 <Link href={slide.href}>
-                                    <span className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-foreground shadow-lg transition-transform hover:scale-[1.02] active:scale-95">
+                                    <span className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-slate-900 shadow-lg transition-transform hover:scale-[1.02] active:scale-95">
                                         {slide.ctaLabel}
                                     </span>
                                 </Link>
