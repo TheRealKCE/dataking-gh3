@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         const metadata = await getShopMeta<any>(ref)
         if (!metadata) {
             console.error('[Shop Verify] Metadata not found for:', ref)
-            if (isInline) return NextResponse.json({ success: false, error: 'payment_error' }, { status: 400 })
+            if (isInline) return NextResponse.json({ success: false, status: 'failed', error: 'payment_error' }, { status: 400 })
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
         }
 
@@ -79,7 +79,12 @@ export async function GET(request: NextRequest) {
 
         if (!result.success) {
             const errorType = result.error === 'Payment amount mismatch' ? 'payment_mismatch' : 'payment_error'
-            if (isInline) return NextResponse.json({ success: false, error: errorType }, { status: 400 })
+            // The storefront poller only stops on status 'completed' or 'failed' — it
+            // never looks at the HTTP code or an `error` field. Without `status: 'failed'`
+            // here, a rejected order (amount mismatch, profit floor, missing price/shop
+            // config) left the customer polling forever on a payment that had already
+            // been captured, with no order ever created and no error ever shown.
+            if (isInline) return NextResponse.json({ success: false, status: 'failed', error: errorType, message: result.error }, { status: 400 })
             return NextResponse.redirect(new URL(`/shop/${slug}?error=${errorType}`, request.url))
         }
 
@@ -91,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('[Shop Verify] Error:', error)
-        if (isInline) return NextResponse.json({ success: false, error: 'server_error' }, { status: 500 })
+        if (isInline) return NextResponse.json({ success: false, status: 'failed', error: 'server_error' }, { status: 500 })
         return NextResponse.redirect(new URL(`/shop/${slug}?error=server_error`, request.url))
     }
 }
