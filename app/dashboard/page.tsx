@@ -25,6 +25,7 @@ import {
     Gift,
 } from 'lucide-react'
 import { RoleGreetingBox } from '@/components/dashboard/RoleGreetingBox'
+import { PromoHeroCarousel } from '@/components/dashboard/PromoHeroCarousel'
 import { RecentOrdersWidget } from '@/components/dashboard/RecentOrdersWidget'
 import { BusinessPerformanceWidget } from '@/components/dashboard/BusinessPerformanceWidget'
 import { ShopDashboardSection } from '@/components/dashboard/ShopDashboardSection'
@@ -279,6 +280,9 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
                 </div>
             </div>
+
+            {/* Rotating Promo Hero Carousel */}
+            <PromoHeroCarousel role={dbUser?.role} phoneVerified={(dbUser as any)?.phone_verified} />
 
             {/* Dynamic Role Greeting Box */}
             <RoleGreetingBox stats={stats!} />
