@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
         }
 
+        // Authoritative amount Paystack reports it actually collected. Only set on the
+        // paystack_momo branch below — every other branch keeps reconstructing the
+        // expected amount from metadata, exactly as processShopOrder does at settlement.
+        let verifiedAmountPesewas: number | null = null
+
         if (metadata?.provider === 'paystack_momo') {
             const verified = await verifyTransaction(ref)
 
@@ -46,6 +51,7 @@ export async function GET(request: NextRequest) {
                 if (isInline) return NextResponse.json({ success: true, status: 'pending' })
                 return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_pending`, request.url))
             }
+            verifiedAmountPesewas = verified.amountPesewas
         } else {
             const moolreResponse = await checkPaymentStatus(ref)
 
@@ -68,7 +74,16 @@ export async function GET(request: NextRequest) {
 
         // 3. Process the order using the shared logic (Idempotent)
         const { processShopOrder } = await import('@/lib/shop-order-processor')
-        const paidAmountPesewas = Math.round(Number(metadata.selling_price || metadata.airtime_amount) * 100) + Math.round(Number(metadata.fee_amount || metadata.paystack_fee || 0) * 100)
+        // The webhook handlers (app/api/webhooks/paystack, .../hubtel) pass the gross
+        // pesewas the gateway actually reports it collected. This route used to always
+        // reconstruct the expected amount from metadata instead — the exact same figure
+        // processShopOrder independently re-derives at settlement — so any drift between
+        // the two derivations (a fee setting changed between init and settle, a stale
+        // metadata field) failed the amount check on a payment that genuinely cleared.
+        // Prefer Paystack's own verified total when we have it; metadata is the fallback
+        // for Moolre, which reports status only, no amount.
+        const paidAmountPesewas = verifiedAmountPesewas ??
+            (Math.round(Number(metadata.selling_price || metadata.airtime_amount) * 100) + Math.round(Number(metadata.fee_amount || metadata.paystack_fee || 0) * 100))
 
         const result = await processShopOrder(
             ref,
