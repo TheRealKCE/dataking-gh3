@@ -9,6 +9,7 @@ import {
     Phone,
     GraduationCap,
     ShieldCheck,
+    Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -82,6 +83,17 @@ const ALL_SLIDES: (Slide & { show: (p: PromoHeroCarouselProps) => boolean })[] =
         ctaLabel: 'Buy Vouchers',
         href: '/dashboard/results-checker',
         gradientClass: 'from-rose-700 to-red-950',
+        show: () => true,
+    },
+    {
+        key: 'mtn-registration',
+        badgeIcon: Search,
+        badgeLabel: 'MTN Check',
+        title: 'Check MTN registration',
+        description: 'See which MTN numbers are registered for data before you order — avoid delays.',
+        ctaLabel: 'Check Numbers',
+        href: '/dashboard/mtn-registration',
+        gradientClass: 'from-yellow-600 to-amber-800',
         show: () => true,
     },
     {
