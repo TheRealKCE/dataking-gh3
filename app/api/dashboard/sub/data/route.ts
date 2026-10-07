@@ -50,6 +50,12 @@ export async function GET(request: NextRequest) {
       .eq('owner_id', user.id)
       .single()
 
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select('phone_verified')
+      .eq('id', user.id)
+      .maybeSingle()
+
     // The sub's OWN storefront slug (null until they create their shop) — used so
     // the dashboard "Shop" tile opens the sub's own store, not the upline's.
     const { data: ownShop } = await supabase
@@ -80,6 +86,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       status: subAgent.status,
+      phoneVerified: !!dbUser?.phone_verified,
       depth: subContext.depth,
       canRecruit: canRecruit(subContext),
       walletBalance: wallet?.balance || 0,
