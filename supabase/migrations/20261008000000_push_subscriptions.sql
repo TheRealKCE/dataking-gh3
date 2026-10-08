@@ -1,6 +1,3 @@
--- Run this once in the Supabase SQL editor:
--- https://supabase.com/dashboard/project/kqnzmymnjdwfroiixkcy/sql/new
-
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    uuid REFERENCES users(id) ON DELETE CASCADE NOT NULL,
@@ -22,5 +19,3 @@ DO $$ BEGIN
       USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())';
   END IF;
 END $$;
-
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;

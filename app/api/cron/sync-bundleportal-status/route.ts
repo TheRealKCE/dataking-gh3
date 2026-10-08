@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { reconcileBundlePortalOrders } from '@/lib/bundleportal-reconcile'
 import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
+import { sendPushToAdmins } from '@/lib/web-push'
 
 // BundlePortal reconciliation cron — the SAFETY NET behind
 // app/api/webhooks/bundleportal. BundlePortal never retries a webhook, so this is
@@ -25,7 +26,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    return NextResponse.json(await reconcileBundlePortalOrders())
+    const result = await reconcileBundlePortalOrders()
+
+    if (result.errors.length > 0) {
+        await sendPushToAdmins({
+            title: 'BundlePortal sync failing',
+            body: result.errors[0],
+            url: '/admin/orders',
+            tag: 'bundleportal-sync-error',
+        }).catch(() => {})
+    }
+
+    return NextResponse.json(result)
 }
 
 // Accept any method (cron-job.org's sent method doesn't always match its UI); auth-gated.

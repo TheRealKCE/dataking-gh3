@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase'
 import { updateOrderWithColumnFallback } from '@/lib/order-update-fallback'
+import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
 
 /**
  * Routes a paid order to the active supplier for the given network.
@@ -229,6 +230,15 @@ export async function triggerFulfillment(orderId: string, network: string, user:
 
             // AirtelTigo via Agent Portal has no verification gate — it delivers quickly.
             // Reassure the recipient once that delivery is instant.
+            if ((order as any).user_id) {
+                await sendPushToUser((order as any).user_id, {
+                    title: 'Order Received',
+                    body: `Your ${(order as any).network} ${(order as any).size} order is being processed.`,
+                    url: '/dashboard/my-orders',
+                    tag: `data-order-${(order as any).reference_code}`,
+                }).catch(() => {})
+            }
+
             if (isAgentPortalEnabled && /^AT/i.test(network)) {
                 const { sendAtInstantDeliverySMS } = await import('@/lib/sms-service')
                 await sendAtInstantDeliverySMS((order as any).phone_number, {
@@ -264,6 +274,12 @@ export async function triggerFulfillment(orderId: string, network: string, user:
 
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error (${supplierLabel}): ${result.error || 'Unknown error'}` })
                 .catch(err => console.error('[Fulfillment] Admin alert (API failed) failed:', err))
+
+            await sendPushToAdmins({
+                title: 'Fulfillment failed',
+                body: `${supplierLabel} error on order ${(order as any).reference_code}: ${result.error || 'Unknown error'}`,
+                url: '/admin/orders',
+            }).catch(() => {})
 
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,

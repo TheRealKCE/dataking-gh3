@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { syncShopOrderStatus } from '@/lib/shop-service'
 import { normaliseSupplierStatus } from '@/lib/order-status-display'
 import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
+import { sendPushToAdmins } from '@/lib/web-push'
 
 // Dakazina reconciliation — the PULL side, and the only thing that can reach orders
 // whose webhook fired while matching was broken. Those events are gone and are never
@@ -109,6 +110,12 @@ export async function GET(request: NextRequest) {
         const rawText = await response.text()
         if (!response.ok) {
             console.error(`[DakazinaSync] HTTP ${response.status}: ${rawText.slice(0, 200)}`)
+            await sendPushToAdmins({
+                title: 'Dakazina sync failing',
+                body: `fetch-transactions returned HTTP ${response.status}`,
+                url: '/admin/orders',
+                tag: 'dakazina-sync-error',
+            }).catch(() => {})
             return NextResponse.json({ success: false, httpStatus: response.status }, { status: 200 })
         }
 
@@ -117,6 +124,12 @@ export async function GET(request: NextRequest) {
             data = JSON.parse(rawText)
         } catch {
             console.error(`[DakazinaSync] Non-JSON response: ${rawText.slice(0, 200)}`)
+            await sendPushToAdmins({
+                title: 'Dakazina sync failing',
+                body: 'fetch-transactions returned a non-JSON response',
+                url: '/admin/orders',
+                tag: 'dakazina-sync-error',
+            }).catch(() => {})
             return NextResponse.json({ success: false, error: 'Non-JSON response' }, { status: 200 })
         }
 
@@ -126,6 +139,12 @@ export async function GET(request: NextRequest) {
 
     } catch (err: any) {
         console.error('[DakazinaSync] Fetch failed:', err?.message || err)
+        await sendPushToAdmins({
+            title: 'Dakazina sync failing',
+            body: `fetch-transactions request failed: ${err?.message || 'unknown error'}`,
+            url: '/admin/orders',
+            tag: 'dakazina-sync-error',
+        }).catch(() => {})
         return NextResponse.json({ success: false, error: 'Fetch failed' }, { status: 200 })
     }
 

@@ -22,7 +22,7 @@ import {
     isUtilityService,
 } from '@/lib/hubtel-utility-service'
 import { queryUtilityAccount } from '@/lib/utility-provider'
-import { sendPushToAdmins } from '@/lib/web-push'
+import { sendPushToAdmins, sendPushToUser } from '@/lib/web-push'
 
 export interface UtilitySettleResult {
     success: boolean
@@ -196,6 +196,13 @@ export async function processUtilityDirectOrder(
         type: 'order_update',
         action_url: '/dashboard/utilities',
     }).then(() => {}).catch((e: any) => console.error('[UtilitySettle] Notification error:', e))
+
+    await sendPushToUser(payment.user_id, {
+        title: `${def.label} Payment Received`,
+        body: `GHS ${Number(order.bill_amount).toFixed(2)} for ${def.label} account ${order.account_number} is being processed.`,
+        url: '/dashboard/utilities',
+        tag: `utility-${order.reference_code}`,
+    }).catch(() => {})
 
     await triggerUtilityFulfillment(order.id)
 

@@ -12,6 +12,7 @@ import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
+import { PushNotificationManager } from '@/components/PushNotificationManager'
 
 export default function AdminLayout({
     children,
@@ -68,6 +69,7 @@ export default function AdminLayout({
 
     return (
         <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000]">
+            <PushNotificationManager />
             <DashboardSidebar />
             <div className={cn(
                 "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
