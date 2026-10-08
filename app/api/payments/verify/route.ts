@@ -110,10 +110,16 @@ export async function GET(request: NextRequest) {
             //
             // Bounded the same way as Hubtel and PaySwitch above. Past the cap the
             // reconciliation sweep settles it with no tab open.
+            //
+            // Tighter than Hubtel's: when the webhook stopped landing (2026-10-07) a 45s
+            // grace made every open-tab top-up take ~50s, and 5 checks 20s apart ran out
+            // after ~2.5 min, handing late approvers to the 5-minute sweep. Paystack's
+            // verify endpoint has no Hubtel-style quota, so check early and cover the
+            // wallet page's full 3-minute polling window (10s + 25 × 6s).
             const decision = await claimHubtelStatusCheck(supabase, paymentRecord as any, {
-                graceMs: 45_000,
-                interval: 20_000,
-                maxChecks: 5,
+                graceMs: 10_000,
+                interval: 6_000,
+                maxChecks: 25,
                 keys: PAYSTACK_MOMO_CLIENT_THROTTLE_KEYS,
             })
 

@@ -62,8 +62,10 @@ const CALLBACK_GRACE_MINUTES = 5
 const FAILURE_CUTOFF_MINUTES = 60
 /** Upper bound on the query. Without it one stuck row is re-checked forever. */
 const ABANDON_AFTER_MINUTES = 24 * 60
-const MAX_CRON_CHECKS = 6
+const MAX_CRON_CHECKS = 10
 const BATCH_LIMIT = 10
+/** Check on every run while a late approval is still likely. */
+const EVERY_RUN_MINUTES = 35
 
 /**
  * Both spellings of "not paid for yet".
@@ -75,9 +77,18 @@ const BATCH_LIMIT = 10
  */
 const UNSETTLED_PAYMENT_STATUSES = ['pending_payment', 'pending']
 
-/** 5, 10, 20, 40, 60, 60 minutes. */
-function cronBackoffMs(_ageMs: number, checkCount: number): number {
-    return Math.min(60, 5 * Math.pow(2, checkCount)) * 60 * 1000
+/**
+ * Every run (5 min) for the first ~30 minutes, then 60 minutes apart.
+ *
+ * Was 5, 10, 20, 40, 60: a customer who approved just after the first check waited
+ * 10+ minutes for the second, which is most of what "my top-up is slow" meant while
+ * the webhook was not landing. The hourly tail still reaches FAILURE_CUTOFF_MINUTES
+ * within MAX_CRON_CHECKS, so abandoned prompts are still marked failed.
+ */
+function cronBackoffMs(ageMs: number, _checkCount: number): number {
+    // 4, not 5: the cron fires every 5 min, and a run landing a second early
+    // would otherwise be throttled and double the wait.
+    return (ageMs < EVERY_RUN_MINUTES * 60 * 1000 ? 4 : 60) * 60 * 1000
 }
 
 function minutesAgo(minutes: number): string {
@@ -125,7 +136,10 @@ export async function GET(request: NextRequest) {
             .eq('provider', 'paystack_momo')
             .lt('created_at', minutesAgo(CALLBACK_GRACE_MINUTES))
             .gt('created_at', minutesAgo(ABANDON_AFTER_MINUTES))
-            .order('created_at', { ascending: true })
+            // Newest first: those are the ones a customer may be waiting on. Oldest
+            // first let abandoned prompts fill the batch and push a fresh paid top-up
+            // to a later run; an old row only loses time before being marked failed.
+            .order('created_at', { ascending: false })
             .limit(BATCH_LIMIT)
 
         if (fetchError) throw new Error(fetchError.message)
