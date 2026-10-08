@@ -148,7 +148,7 @@ export function PromoHeroCarousel({ role, phoneVerified }: PromoHeroCarouselProp
 
     return (
         <div className="relative w-full overflow-hidden rounded-3xl shadow-sm">
-            <div className="relative h-56 sm:h-48">
+            <div className="relative h-44 sm:h-40">
                 {slides.map((slide, i) => (
                     <div
                         key={slide.key}
