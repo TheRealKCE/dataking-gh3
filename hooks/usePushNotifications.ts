@@ -11,13 +11,30 @@ function urlBase64ToUint8Array(base64String: string) {
     return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)))
 }
 
+function sameKey(a: ArrayBuffer | null, b: Uint8Array) {
+    if (!a) return false
+    const av = new Uint8Array(a)
+    return av.length === b.length && av.every((v, i) => v === b[i])
+}
+
 async function getOrCreateSubscription(): Promise<PushSubscription> {
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
     if (!vapidKey) throw new Error('VAPID key missing')
 
     const registration = await navigator.serviceWorker.ready
     const existing = await registration.pushManager.getSubscription()
-    if (existing) return existing
+    if (existing) {
+        // A subscription made under an old VAPID key is rejected by the push
+        // service forever, so reusing it would never heal after a key rotation.
+        if (sameKey(existing.options.applicationServerKey, urlBase64ToUint8Array(vapidKey))) {
+            return existing
+        }
+        await existing.unsubscribe().catch(() => {})
+        return registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        })
+    }
 
     try {
         return await registration.pushManager.subscribe({

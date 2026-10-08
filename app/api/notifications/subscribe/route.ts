@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
         const supabase = createServerClient()
 
-        await (supabase.from('push_subscriptions') as any)
+        const { error } = await (supabase.from('push_subscriptions') as any)
             .upsert(
                 {
                     user_id: user.id,
@@ -35,8 +35,14 @@ export async function POST(req: NextRequest) {
                 { onConflict: 'user_id,endpoint' }
             )
 
+        if (error) {
+            console.error('[PushSubscribe] Save failed:', error.message)
+            return NextResponse.json({ error: 'Could not save subscription' }, { status: 500 })
+        }
+
         return NextResponse.json({ success: true })
-    } catch {
+    } catch (err: any) {
+        console.error('[PushSubscribe] Error:', err?.message || err)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }
 }
