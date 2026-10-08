@@ -187,12 +187,14 @@ export async function validateApiKey(
 
     if (userStatus !== 'active') return apiError(403, 'Your account is suspended or inactive')
 
+    // Dealers always get standard API access, whatever the stored
+    // api_allowed_roles setting says (it predates dealers and has no admin UI).
     const allowedRoles = keyKind === 'commission'
         ? parseAllowedRoles(settings['api_commission_allowed_roles'])
-        : parseAllowedRoles(settings['api_allowed_roles'])
+        : [...parseAllowedRoles(settings['api_allowed_roles']), 'dealer']
 
     if (!allowedRoles.includes(userRole)) {
-        return apiError(403, `${KIND_LABEL[keyKind]} access requires agent status. Your current role: ${userRole}`)
+        return apiError(403, `${KIND_LABEL[keyKind]} access is not available for your account role (${userRole})`)
     }
 
     // Cache valid auth for 60s
