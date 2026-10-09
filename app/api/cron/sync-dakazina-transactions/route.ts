@@ -108,6 +108,16 @@ export async function GET(request: NextRequest) {
         })
 
         const rawText = await response.text()
+
+        // An empty feed comes back as 404 {"message":"No active transactions found."},
+        // not 200 []. That is the normal idle state, not a failure — it was paging
+        // admins every 5 minutes. A missing route 404s with "The route … could not be
+        // found." instead, so that still alerts below.
+        if (response.status === 404 && /no\b.*transactions?\b.*found/i.test(rawText)) {
+            console.log('[DakazinaSync] rows=0 (feed empty: 404 "no transactions found")')
+            return NextResponse.json({ success: true, rows: 0, updated: 0, foundAt: 'empty-404' }, { status: 200 })
+        }
+
         if (!response.ok) {
             console.error(`[DakazinaSync] HTTP ${response.status}: ${rawText.slice(0, 200)}`)
             await sendPushToAdmins({
