@@ -26,6 +26,7 @@ import {
     Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getActiveRegistration } from '@/hooks/usePushNotifications'
 import type { Notification } from '@/types/supabase'
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -105,7 +106,7 @@ export default function NotificationsPage() {
 
     const refreshSubscription = async () => {
         try {
-            const registration = await navigator.serviceWorker.ready
+            const registration = await getActiveRegistration()
             const subscription = await pushSubscribe(registration)
             await fetch('/api/notifications/subscribe', {
                 method: 'POST',
@@ -126,7 +127,7 @@ export default function NotificationsPage() {
                 toast.error('Push notifications blocked. Enable them in your browser settings.')
                 return
             }
-            const registration = await navigator.serviceWorker.ready
+            const registration = await getActiveRegistration()
             const subscription = await pushSubscribe(registration)
             const res = await fetch('/api/notifications/subscribe', {
                 method: 'POST',
@@ -147,7 +148,7 @@ export default function NotificationsPage() {
 
     const unsubscribeFromPush = async () => {
         try {
-            const registration = await navigator.serviceWorker.ready
+            const registration = await getActiveRegistration()
             const subscription = await registration.pushManager.getSubscription()
             if (subscription) {
                 await fetch('/api/notifications/unsubscribe', {

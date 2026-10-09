@@ -144,10 +144,13 @@ export function PushNotificationManager() {
     const handleEnable = async () => {
         setEnabling(true)
         try {
-            const result = await requestPermission()
+            const { result, error } = await requestPermission()
             if (result === 'granted') {
                 toast.success('Push notifications enabled!')
                 setShowEnableBanner(false)
+            } else if (result === 'failed') {
+                // Allowed, but setup broke — keep the banner so they can retry.
+                toast.error(`Could not turn on notifications${error ? `: ${error}` : ''}. Please try again.`)
             } else {
                 // 'denied' or 'default' — nothing more we can do from here; hide the
                 // banner either way so it doesn't nag after an explicit answer.
