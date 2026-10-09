@@ -148,7 +148,7 @@ export function PromoHeroCarousel({ role, phoneVerified }: PromoHeroCarouselProp
 
     return (
         <div className="relative w-full overflow-hidden rounded-3xl shadow-sm">
-            <div className="relative h-44 sm:h-40">
+            <div className="relative h-52 sm:h-48">
                 {slides.map((slide, i) => (
                     <div
                         key={slide.key}
@@ -170,7 +170,7 @@ export function PromoHeroCarousel({ role, phoneVerified }: PromoHeroCarouselProp
                                 </div>
                             </div>
 
-                            <div className="relative z-10 pb-4">
+                            <div className="relative z-10 pb-7">
                                 <h3 className="text-base sm:text-xl font-black text-white tracking-tight mb-1">
                                     {slide.title}
                                 </h3>
@@ -189,7 +189,7 @@ export function PromoHeroCarousel({ role, phoneVerified }: PromoHeroCarouselProp
             </div>
 
             {slides.length > 1 && (
-                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
                     {slides.map((slide, i) => (
                         <button
                             key={slide.key}
