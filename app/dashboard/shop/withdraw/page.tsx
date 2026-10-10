@@ -65,7 +65,7 @@ interface WithdrawalRequest {
     account_name: string
     momo_number: string
     network: string | null
-    status: 'pending' | 'completed' | 'moolre_pending'
+    status: 'pending' | 'completed' | 'moolre_pending' | 'shop_owner_pending' | 'rejected'
     admin_note: string | null
     created_at: string
     balance_snapshot: number | null
@@ -99,6 +99,10 @@ const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400', icon: Clock },
     completed: { label: 'Paid', color: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400', icon: CheckCircle2 },
     moolre_pending: { label: 'Processing', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400', icon: Loader2 },
+    // A sub-agent's withdrawal request, waiting on this shop owner (the Lead)
+    // to approve it before it enters the admin payout queue.
+    shop_owner_pending: { label: 'Needs your approval', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400', icon: AlertCircle },
+    rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400', icon: XCircle },
 }
 
 // ─────────────────────────────────────────────

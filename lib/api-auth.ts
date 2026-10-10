@@ -187,12 +187,17 @@ export async function validateApiKey(
 
     if (userStatus !== 'active') return apiError(403, 'Your account is suspended or inactive')
 
-    const allowedRoles = keyKind === 'commission'
-        ? parseAllowedRoles(settings['api_commission_allowed_roles'])
-        : parseAllowedRoles(settings['api_allowed_roles'])
-
-    if (!allowedRoles.includes(userRole)) {
-        return apiError(403, `${KIND_LABEL[keyKind]} access requires agent status. Your current role: ${userRole}`)
+    // Standard keys work for every active account, whatever its role — the
+    // stored api_allowed_roles setting is no longer consulted. Approval of the
+    // key itself (status 'active') is the gate. Commission keys stay role-gated,
+    // but dealers are always allowed: api_commission_allowed_roles predates
+    // dealers, has no admin UI, and a dealer can be issued and approved a
+    // commission key that this check would then refuse on every call.
+    if (keyKind === 'commission') {
+        const allowedRoles = [...parseAllowedRoles(settings['api_commission_allowed_roles']), 'dealer']
+        if (!allowedRoles.includes(userRole)) {
+            return apiError(403, `${KIND_LABEL[keyKind]} access is not available for your account role (${userRole})`)
+        }
     }
 
     // Cache valid auth for 60s

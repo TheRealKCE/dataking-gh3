@@ -1594,7 +1594,7 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className="h-auto p-0 bg-transparent grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 w-full mb-2">
+                <TabsList className="h-auto p-0 bg-transparent grid grid-cols-4 lg:grid-cols-6 gap-2 w-full mb-2">
                     {ALL_NETWORKS.filter(network => (!hideMashup || network !== 'Special MTN Mashup') && (!hideExpressMtn || network !== 'EXPRESS MTN') && (!hideStandardMtn || network !== 'MTN')).map((network) => {
                         const isSelected = selectedNetwork === network;
                         return (
@@ -1602,25 +1602,25 @@ export default function DataPackagesPage() {
                                 key={network}
                                 value={network}
                                 className={cn(
-                                    "relative flex flex-col items-center justify-center gap-3 py-4 px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                    "relative flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl border transition-all bg-white dark:bg-zinc-900 shadow-sm",
                                     "data-[state=active]:border-[#8a2be2] data-[state=active]:shadow-sm data-[state=active]:scale-[1.01]",
                                     "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
                                     "data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white"
                                 )}
                             >
                                 {isSelected && (
-                                    <div className="absolute top-2 right-2 z-10 bg-white rounded-full">
-                                        <CheckCircle2 className="w-4 h-4 text-[#20d880]" strokeWidth={2.5} />
+                                    <div className="absolute top-1 right-1 z-10 bg-white rounded-full">
+                                        <CheckCircle2 className="w-3 h-3 text-[#20d880]" strokeWidth={2.5} />
                                     </div>
                                 )}
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center mt-1">
-                                    <NetworkIcon network={network} size={36} />
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center">
+                                    <NetworkIcon network={network} size={24} />
                                 </div>
-                                <span className="text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
+                                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
                                     {network === 'Special MTN Mashup' ? 'Special Mashup' : network === 'EXPRESS MTN' ? 'Express MTN' : network === 'AT-iShare' ? 'AT iShare' : network === 'AT-BigTime' ? 'AT BigTime' : network}
                                 </span>
-                                <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#20d880] mb-1">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[#20d880]" /> Live
+                                <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-[#20d880]">
+                                    <div className="w-1 h-1 rounded-full bg-[#20d880]" /> Live
                                 </div>
                             </TabsTrigger>
                         )

@@ -143,6 +143,7 @@ export function LandingClientShell({
                         {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support']].map(([l,h]) => (
                             <a key={l} href={h} className="text-xs font-semibold transition-colors text-black/50 dark:text-white/60">{l}</a>
                         ))}
+                        <Link href="/docs" className="text-xs font-semibold transition-colors text-black/50 dark:text-white/60">Developers</Link>
                     </div>
 
                     <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
@@ -490,6 +491,7 @@ export function LandingClientShell({
                                 <li><a href="#features" className="hover:text-[#2563eb] transition-colors">Features</a></li>
                                 <li><a href="#plans" className="hover:text-[#2563eb] transition-colors">Reseller Plans</a></li>
                                 <li><Link href="/shop/status" className="hover:text-[#2563eb] transition-colors">Order Tracking</Link></li>
+                                <li><Link href="/docs" className="hover:text-[#2563eb] transition-colors">Developer API</Link></li>
                             </ul>
                         </div>
                         <div className="space-y-6">

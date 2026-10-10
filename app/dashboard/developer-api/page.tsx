@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -124,7 +123,6 @@ const WEBHOOK_CARD: Record<KeyKind, { title: string; blurb: string; keyLabel: st
 
 export default function DeveloperApiPage() {
     const { dbUser } = useAuth()
-    const router = useRouter()
 
     const [keys, setKeys] = useState<ApiKey[] | undefined>(undefined)
     const [logs, setLogs] = useState<ApiLog[]>([])
@@ -239,12 +237,6 @@ export default function DeveloperApiPage() {
             .then(d => { if (d.whatsapp_admin_number) setAdminWhatsapp(d.whatsapp_admin_number) })
             .catch(() => {})
     }, [fetchKeys, fetchLogs])
-
-    useEffect(() => {
-        if (dbUser && dbUser.role !== 'agent' && dbUser.role !== 'admin' && dbUser.role !== 'sub-admin') {
-            router.push('/dashboard/upgrade')
-        }
-    }, [dbUser, router])
 
     const keyOf = useCallback(
         (kind: KeyKind): ApiKey | null => keys?.find(k => (k.kind ?? 'standard') === kind) ?? null,
@@ -414,7 +406,7 @@ export default function DeveloperApiPage() {
                 <div className="min-w-0">
                     <h1 className="text-2xl font-bold tracking-tight">Developer API</h1>
                     <p className="text-muted-foreground text-sm mt-1">
-                        Integrate ARHMS into your own apps. Agent plan required.
+                        Integrate ARHMS into your own apps.
                     </p>
                 </div>
                 {/* The full reference lives at /docs, which is public — a partner reading it

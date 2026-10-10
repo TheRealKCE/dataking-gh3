@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { BrandConfig } from '@/lib/brand-context'
 import { ShopAnnouncementBox } from '@/components/dashboard/ShopAnnouncementBox'
+import { PromoHeroCarousel } from '@/components/dashboard/PromoHeroCarousel'
 import { cn, formatCurrency } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ import {
 interface SubDashboardData {
   status: 'pending' | 'active' | 'suspended'
   canRecruit?: boolean
+  phoneVerified: boolean
   walletBalance: number
   totalEarned: number
   totalWithdrawn: number
@@ -264,6 +266,12 @@ export default function SubDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Rotating Promo Hero Carousel — no "Recruit Sub-Agents" slide here since
+          recruiting isn't offered to subs the way it is to agents/dealers; the
+          shared data/airtime/USSD/results-checker/MTN-check/verify slides apply
+          the same as the main dashboard. */}
+      {isActive && <PromoHeroCarousel phoneVerified={data.phoneVerified} />}
 
       {/* Earnings wallet & shop card */}
       <div className="grid lg:grid-cols-3 gap-6">

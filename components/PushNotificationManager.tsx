@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { usePwa } from '@/hooks/use-pwa'
 import { usePushNotifications, isPushSupported } from '@/hooks/usePushNotifications'
@@ -8,12 +8,19 @@ import { toast } from 'sonner'
 import { Bell, Share, Plus, X } from 'lucide-react'
 
 const LS_IOS_INSTALL_DISMISSED = 'push_ios_install_dismissed'
+const LS_ENABLE_BANNER_DISMISSED = 'push_enable_banner_dismissed'
 
 function isIosInstallDismissed() {
     try { return localStorage.getItem(LS_IOS_INSTALL_DISMISSED) === '1' } catch { return false }
 }
 function dismissIosInstall() {
     try { localStorage.setItem(LS_IOS_INSTALL_DISMISSED, '1') } catch {}
+}
+function isEnableBannerDismissed() {
+    try { return localStorage.getItem(LS_ENABLE_BANNER_DISMISSED) === '1' } catch { return false }
+}
+function dismissEnableBanner() {
+    try { localStorage.setItem(LS_ENABLE_BANNER_DISMISSED, '1') } catch {}
 }
 
 function IosInstallBanner({ onDismiss }: { onDismiss: () => void }) {
@@ -54,11 +61,43 @@ function IosInstallBanner({ onDismiss }: { onDismiss: () => void }) {
     )
 }
 
+function EnableNotificationsBanner({ onEnable, onDismiss, enabling }: { onEnable: () => void; onDismiss: () => void; enabling: boolean }) {
+    return (
+        <div className="fixed bottom-20 left-0 right-0 z-50 px-3 pb-1 md:bottom-4 md:left-auto md:right-4 md:max-w-sm animate-in slide-in-from-bottom-4 duration-300">
+            <div className="relative rounded-2xl border border-amber-400/40 bg-amber-950/90 backdrop-blur-lg shadow-2xl p-4 text-white overflow-hidden">
+                <div className="absolute left-0 right-0 top-0 h-0.5 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500 rounded-t-2xl" />
+                <button onClick={onDismiss} className="absolute top-3 right-3 text-amber-300/70 hover:text-white transition-colors" aria-label="Dismiss">
+                    <X className="w-4 h-4" />
+                </button>
+                <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Bell className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm text-amber-100">Turn on notifications</p>
+                        <p className="text-xs text-amber-200/70 mt-0.5 leading-snug">
+                            Get order and wallet updates on your phone, even when the app is closed.
+                        </p>
+                    </div>
+                </div>
+                <button
+                    onClick={onEnable}
+                    disabled={enabling}
+                    className="mt-3 w-full rounded-lg bg-amber-500 text-amber-950 font-semibold text-sm py-2 disabled:opacity-60"
+                >
+                    {enabling ? 'Enabling…' : 'Enable Notifications'}
+                </button>
+            </div>
+        </div>
+    )
+}
+
 export function PushNotificationManager() {
     const { user } = useAuth()
     const { isIOS, isInstalled } = usePwa()
     const [showIosBanner, setShowIosBanner] = useState(false)
-    const attemptedAutoPrompt = useRef(false)
+    const [showEnableBanner, setShowEnableBanner] = useState(false)
+    const [enabling, setEnabling] = useState(false)
 
     const { isPermDenied, requestPermission } = usePushNotifications({ userId: user?.id })
 
@@ -68,9 +107,8 @@ export function PushNotificationManager() {
         // Already granted — hook handles re-subscription silently
         if (isPushSupported() && Notification.permission === 'granted') return
 
-        // Browser-level permanently denied
+        // Browser-level permanently denied, or the user dismissed our own prompt before
         if (isPushSupported() && Notification.permission === 'denied') return
-
         if (isPermDenied) return
 
         // iOS not installed — Apple blocks push unless installed as PWA
@@ -83,28 +121,53 @@ export function PushNotificationManager() {
         }
 
         if (!isPushSupported()) return
+        if (isEnableBannerDismissed()) return
 
-        // Auto-trigger native permission prompt with a short delay
-        const t = setTimeout(async () => {
-            if (attemptedAutoPrompt.current) return
-            attemptedAutoPrompt.current = true
-
-            const result = await requestPermission()
-            if (result === 'granted') {
-                toast.success('Push notifications enabled!')
-            }
-        }, 1500)
-
+        // Notification.requestPermission() must come from a real user gesture —
+        // mobile Chrome silently ignores it when called from a timer, which is why
+        // this used to auto-fire and never show anything. Show a tappable banner
+        // instead and let the click itself carry the gesture.
+        const t = setTimeout(() => setShowEnableBanner(true), 1500)
         return () => clearTimeout(t)
-    }, [user, isIOS, isInstalled, isPermDenied, requestPermission])
+    }, [user, isIOS, isInstalled, isPermDenied])
 
     const handleIosDismiss = () => {
         dismissIosInstall()
         setShowIosBanner(false)
     }
 
+    const handleEnableDismiss = () => {
+        dismissEnableBanner()
+        setShowEnableBanner(false)
+    }
+
+    const handleEnable = async () => {
+        setEnabling(true)
+        try {
+            const { result, error } = await requestPermission()
+            if (result === 'granted') {
+                toast.success('Push notifications enabled!')
+                setShowEnableBanner(false)
+            } else if (result === 'failed') {
+                // Allowed, but setup broke — keep the banner so they can retry.
+                toast.error(`Could not turn on notifications${error ? `: ${error}` : ''}. Please try again.`)
+            } else {
+                // 'denied' or 'default' — nothing more we can do from here; hide the
+                // banner either way so it doesn't nag after an explicit answer.
+                dismissEnableBanner()
+                setShowEnableBanner(false)
+            }
+        } finally {
+            setEnabling(false)
+        }
+    }
+
     if (showIosBanner) {
         return <IosInstallBanner onDismiss={handleIosDismiss} />
+    }
+
+    if (showEnableBanner) {
+        return <EnableNotificationsBanner onEnable={handleEnable} onDismiss={handleEnableDismiss} enabling={enabling} />
     }
 
     return null

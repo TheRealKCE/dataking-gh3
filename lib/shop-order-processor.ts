@@ -4,6 +4,7 @@ import { creditShopProfit } from './shop-service'
 import { resolveSubAgentContext } from './sub-agents'
 import { resolveChainCosts, splitChainProfit } from './pricing/chain-cost'
 import { shopFeeSettingKeys, resolveShopFeePercent } from './gateway-fees'
+import { sendPushToUser } from './web-push'
 import type { PaymentProvider } from './payment-provider'
 
 // In-memory lock to prevent race conditions between frontend verification and Paystack webhooks
@@ -442,6 +443,14 @@ export async function processShopOrder(
             await creditShopProfit(orderId!, { hasUpline: !!parentShopId })
         } catch (profitErr) {
             console.error('[Shop Order Processor] Profit credit error:', profitErr)
+        }
+
+        if (shopProfile?.owner_id) {
+            await sendPushToUser(shopProfile.owner_id, {
+                title: 'New Order',
+                body: `${metadata.network} ${metadata.package_size} order for ${metadata.guest_phone}`,
+                url: '/dashboard/shop/orders',
+            }).catch(() => {})
         }
 
         // 4.3 Trigger Fulfillment

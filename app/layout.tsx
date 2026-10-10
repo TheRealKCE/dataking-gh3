@@ -47,8 +47,8 @@ export const metadata: Metadata = {
     // it can infer. Pinning it makes every share preview point at the real site.
     metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'),
     title: 'ARHMS TECHNOLOGIES',
-    description: "Ghana's trusted data bundle reselling platform. Buy and resell MTN, Telecel and AirtelTigo bundles instantly.",
-    keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles', 'reseller'],
+    description: "Ghana's trusted platform for data bundles, airtime and utility bill payments. Buy and resell MTN, Telecel and AirtelTigo bundles, pay ECG, Ghana Water, DStv, GOtv and StarTimes bills instantly — with a developer API for businesses.",
+    keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles', 'reseller', 'utility bills', 'ECG bill payment', 'Ghana Water', 'DStv', 'GOtv', 'StarTimes', 'developer API'],
     authors: [{ name: 'ARHMS TECHNOLOGIES' }],
     manifest: '/manifest.json',
     appleWebApp: {
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     },
     openGraph: {
         title: 'ARHMS TECHNOLOGIES',
-        description: "Ghana's trusted data bundle reselling platform",
+        description: "Ghana's trusted platform for data bundles, airtime and utility bill payments",
         type: 'website',
         images: [{ url: '/arhms-logo.png', width: 512, height: 512, alt: 'ARHMS TECHNOLOGIES' }],
     },

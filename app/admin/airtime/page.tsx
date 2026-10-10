@@ -637,7 +637,7 @@ export default function AdminAirtimePage() {
                                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-4 border border-slate-100 dark:border-slate-800/30">
                                                 <div className="flex items-center gap-2.5 mb-2">
                                                     <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-black text-[10px] uppercase">
-                                                        {order.users?.first_name?.[0].toUpperCase()}{order.users?.last_name?.[0].toUpperCase()}
+                                                        {order.users?.first_name?.[0]?.toUpperCase()}{order.users?.last_name?.[0]?.toUpperCase()}
                                                     </div>
                                                     <div>
                                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Initiator</p>

@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { syncShopOrderStatus } from '@/lib/shop-service'
 import { normaliseSupplierStatus } from '@/lib/order-status-display'
 import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
+import { sendPushToAdmins } from '@/lib/web-push'
 
 // Dakazina reconciliation — the PULL side, and the only thing that can reach orders
 // whose webhook fired while matching was broken. Those events are gone and are never
@@ -107,8 +108,24 @@ export async function GET(request: NextRequest) {
         })
 
         const rawText = await response.text()
+
+        // An empty feed comes back as 404 {"message":"No active transactions found."},
+        // not 200 []. That is the normal idle state, not a failure — it was paging
+        // admins every 5 minutes. A missing route 404s with "The route … could not be
+        // found." instead, so that still alerts below.
+        if (response.status === 404 && /no\b.*transactions?\b.*found/i.test(rawText)) {
+            console.log('[DakazinaSync] rows=0 (feed empty: 404 "no transactions found")')
+            return NextResponse.json({ success: true, rows: 0, updated: 0, foundAt: 'empty-404' }, { status: 200 })
+        }
+
         if (!response.ok) {
             console.error(`[DakazinaSync] HTTP ${response.status}: ${rawText.slice(0, 200)}`)
+            await sendPushToAdmins({
+                title: 'Dakazina sync failing',
+                body: `fetch-transactions returned HTTP ${response.status}`,
+                url: '/admin/orders',
+                tag: 'dakazina-sync-error',
+            }).catch(() => {})
             return NextResponse.json({ success: false, httpStatus: response.status }, { status: 200 })
         }
 
@@ -117,6 +134,12 @@ export async function GET(request: NextRequest) {
             data = JSON.parse(rawText)
         } catch {
             console.error(`[DakazinaSync] Non-JSON response: ${rawText.slice(0, 200)}`)
+            await sendPushToAdmins({
+                title: 'Dakazina sync failing',
+                body: 'fetch-transactions returned a non-JSON response',
+                url: '/admin/orders',
+                tag: 'dakazina-sync-error',
+            }).catch(() => {})
             return NextResponse.json({ success: false, error: 'Non-JSON response' }, { status: 200 })
         }
 
@@ -126,6 +149,12 @@ export async function GET(request: NextRequest) {
 
     } catch (err: any) {
         console.error('[DakazinaSync] Fetch failed:', err?.message || err)
+        await sendPushToAdmins({
+            title: 'Dakazina sync failing',
+            body: `fetch-transactions request failed: ${err?.message || 'unknown error'}`,
+            url: '/admin/orders',
+            tag: 'dakazina-sync-error',
+        }).catch(() => {})
         return NextResponse.json({ success: false, error: 'Fetch failed' }, { status: 200 })
     }
 
