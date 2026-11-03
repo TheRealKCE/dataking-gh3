@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
-import { sendSMS } from '@/lib/sms-service'
+import { sendSMS, getActiveSmsProvider } from '@/lib/sms-service'
 import { z } from 'zod'
 
 const testSchema = z.object({
@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: result.success,
-            provider: 'moolre',
+            // The gateway sendSMS actually used; this said 'moolre' whatever was set.
+            provider: process.env.SMS_ENABLED === 'false' ? 'disabled' : await getActiveSmsProvider('main'),
             phone,
             messageId: result.messageId ?? null,
             error: result.error ?? null,
