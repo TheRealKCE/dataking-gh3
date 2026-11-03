@@ -27,8 +27,13 @@ const KF_V2_URL = process.env.KINGFLEXY_API_V2_URL || 'https://api.kingflexygh.c
  * and order updates, and the admin broadcast. Leaving the field out relies on a
  * default sender at KingFlexy, and with none set every such send was refused
  * while the shops' named senders went through.
+ *
+ * ArhmsTech matches the Moolre sender, so the main site reads the same on both
+ * gateways. Until KingFlexy has it registered, sends go out as ARHMSGH, which
+ * is, rather than being refused.
  */
-const KF_PLATFORM_SENDER = (process.env.KINGFLEXY_SMS_SENDER || 'ARHMSGH').trim()
+const KF_PLATFORM_SENDER = (process.env.KINGFLEXY_SMS_SENDER || 'ArhmsTech').trim()
+const KF_PLATFORM_FALLBACK_SENDER = 'ARHMSGH'
 
 /** Their documented ceiling for a single call. */
 export const KF_MAX_RECIPIENTS_PER_CALL = 10_000
@@ -204,6 +209,16 @@ async function resolveKingFlexySender(sender: string): Promise<string> {
     return registered.find(s => senderKey(s) === key) ?? sender
 }
 
+/**
+ * The platform's sender if KingFlexy has it registered, else the fallback.
+ * When their list can't be read, the fallback too: it is known to send.
+ */
+async function resolvePlatformSender(): Promise<string> {
+    const preferred = await resolveKingFlexySender(KF_PLATFORM_SENDER)
+    if (registeredSendersCache?.senders.includes(preferred)) return preferred
+    return resolveKingFlexySender(KF_PLATFORM_FALLBACK_SENDER)
+}
+
 export interface KfBulkResult {
     ok: boolean
     /** Their campaign id — our handle for delivery reports later. */
@@ -239,7 +254,7 @@ export async function sendKingFlexyBulkSMS(params: {
         return { ok: false, sent: 0, failed: params.recipients.length, error: `A single call carries at most ${KF_MAX_RECIPIENTS_PER_CALL} recipients` }
     }
 
-    const sender = await resolveKingFlexySender(params.sender || KF_PLATFORM_SENDER)
+    const sender = params.sender ? await resolveKingFlexySender(params.sender) : await resolvePlatformSender()
 
     const res = await kfRequest('POST', '/sms/send', {
         message: params.message,
