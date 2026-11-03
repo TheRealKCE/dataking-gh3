@@ -22,6 +22,14 @@
 const KF_SMS_KEY = process.env.KINGFLEXY_SMS_KEY || ''
 const KF_V2_URL = process.env.KINGFLEXY_API_V2_URL || 'https://api.kingflexygh.com/api/v2'
 
+/**
+ * The platform's own sender, for sends that name none: main-site OTPs, top-ups
+ * and order updates, and the admin broadcast. Leaving the field out relies on a
+ * default sender at KingFlexy, and with none set every such send was refused
+ * while the shops' named senders went through.
+ */
+const KF_PLATFORM_SENDER = (process.env.KINGFLEXY_SMS_SENDER || 'ARHMSGH').trim()
+
 /** Their documented ceiling for a single call. */
 export const KF_MAX_RECIPIENTS_PER_CALL = 10_000
 
@@ -231,7 +239,7 @@ export async function sendKingFlexyBulkSMS(params: {
         return { ok: false, sent: 0, failed: params.recipients.length, error: `A single call carries at most ${KF_MAX_RECIPIENTS_PER_CALL} recipients` }
     }
 
-    const sender = params.sender ? await resolveKingFlexySender(params.sender) : undefined
+    const sender = await resolveKingFlexySender(params.sender || KF_PLATFORM_SENDER)
 
     const res = await kfRequest('POST', '/sms/send', {
         message: params.message,
