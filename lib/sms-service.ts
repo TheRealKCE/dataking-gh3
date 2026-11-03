@@ -116,7 +116,7 @@ export async function getActiveSmsProvider(scope: SmsScope = 'main'): Promise<Ac
 
 async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MOOLRE_API_KEY
-    const senderId = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
+    const senderId = (process.env.MOOLRE_SENDER_ID || 'ARHMSGH LTD').trim()
 
     if (!apiKey || apiKey.trim() === '') {
         console.error('[SMS] MOOLRE_API_KEY not set')
@@ -199,7 +199,7 @@ export async function sendMoolreBulkSMS(params: {
     messages?: string[]
 }): Promise<{ ok: boolean; error?: string }> {
     const apiKey = process.env.MOOLRE_API_KEY
-    const senderId = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
+    const senderId = (process.env.MOOLRE_SENDER_ID || 'ARHMSGH LTD').trim()
     if (!apiKey || apiKey.trim() === '') {
         console.error('[SMS] MOOLRE_API_KEY not set')
         return { ok: false, error: 'MOOLRE_API_KEY not configured' }

@@ -28,11 +28,12 @@ const KF_V2_URL = process.env.KINGFLEXY_API_V2_URL || 'https://api.kingflexygh.c
  * default sender at KingFlexy, and with none set every such send was refused
  * while the shops' named senders went through.
  *
- * ArhmsTech matches the Moolre sender, so the main site reads the same on both
- * gateways. Until KingFlexy has it registered, sends go out as ARHMSGH, which
- * is, rather than being refused.
+ * ARHMSGH by default: with ArhmsTech, broadcasts came back AIN01 (a Moolre
+ * error) while the shops' own senders kept delivering, so KingFlexy appears to
+ * route ArhmsTech through Moolre. KINGFLEXY_SMS_SENDER picks another; one that
+ * KingFlexy doesn't list falls back to ARHMSGH rather than being refused.
  */
-const KF_PLATFORM_SENDER = (process.env.KINGFLEXY_SMS_SENDER || 'ArhmsTech').trim()
+const KF_PLATFORM_SENDER = (process.env.KINGFLEXY_SMS_SENDER || 'ARHMSGH').trim()
 const KF_PLATFORM_FALLBACK_SENDER = 'ARHMSGH'
 
 /** Their documented ceiling for a single call. */
