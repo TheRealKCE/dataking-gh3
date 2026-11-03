@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { normalizeWhatsAppNumber } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -86,9 +86,19 @@ export default function AdminSettingsPage() {
     const [hideStandardMtn, setHideStandardMtn] = useState(false)
     const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
 
+    // What each setting held when the page loaded, in buildUpdates' form.
+    const loadedValues = useRef<Record<string, string> | null>(null)
+
     useEffect(() => {
         fetchSettings()
     }, [])
+
+    // Taken once the loaded values have rendered, so it sees them and not the defaults.
+    useEffect(() => {
+        if (!loading && !loadedValues.current) {
+            loadedValues.current = Object.fromEntries(buildUpdates().map(u => [u.key, u.value]))
+        }
+    }, [loading])
 
     const fetchSettings = async () => {
         try {
@@ -173,64 +183,73 @@ export default function AdminSettingsPage() {
         }
     }
 
+    // Every setting the page manages, as it would be written now. Saving sends
+    // only the ones that differ from what was loaded: writing them all let a tab
+    // opened earlier put back an SMS gateway changed elsewhere since.
+    const buildUpdates = () => [
+            { key: 'paystack_fee_percent', value: paystackFee },
+            { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
+            { key: 'paystack_momo_fee_percent', value: paystackMomoFee },
+            { key: 'agent_paystack_momo_fee_percent', value: agentPaystackMomoFee },
+            { key: 'mtn_price_adjustment', value: mtnAdjustment },
+            { key: 'agent_upgrade_price', value: agentUpgradePrice },
+            { key: 'afa_price_customer', value: afaPriceCustomer },
+            { key: 'afa_price_agent', value: afaPriceAgent },
+            { key: 'afa_price_dealer', value: afaPriceDealer },
+            { key: 'afa_price_api', value: afaPriceApi },
+            { key: 'storefront_afa_enabled', value: String(storefrontAfaEnabled) },
+            { key: 'dealer_promo_enabled', value: String(dealerPromoEnabled) },
+            { key: 'landing_rc_only_enabled', value: String(landingRcOnlyEnabled) },
+            { key: 'support_email', value: supportEmail },
+            { key: 'guest_storefront_url', value: guestStorefrontUrl },
+            { key: 'whatsapp_group_link', value: whatsappGroupLink },
+            { key: 'whatsapp_channel_link', value: whatsappChannelLink },
+            { key: 'whatsapp_admin_number', value: normalizeWhatsAppNumber(whatsappAdminNumber) },
+            { key: 'whatsapp_community_link', value: whatsappCommunityLink },
+            { key: 'footer_copyright_text', value: footerCopyrightText },
+            { key: 'footer_branding_text', value: footerBrandingText },
+            { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
+            { key: 'active_sms_provider', value: smsProvider },
+            { key: 'active_sms_provider_storefront', value: storefrontSmsProvider },
+            { key: 'active_payment_provider_web', value: webPaymentProvider },
+            { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+            { key: 'active_payment_provider_ussd', value: ussdPaymentProvider },
+            { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
+            { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
+            // Page access settings
+            { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
+            { key: 'page_access_data_packages', value: String(pageAccessDataPackages) },
+            { key: 'page_access_orders', value: String(pageAccessOrders) },
+            { key: 'page_access_wallet', value: String(pageAccessWallet) },
+            { key: 'page_access_complaints', value: String(pageAccessComplaints) },
+            { key: 'page_access_notifications', value: String(pageAccessNotifications) },
+            { key: 'page_access_profile', value: String(pageAccessProfile) },
+            { key: 'page_access_shop', value: String(pageAccessShop) },
+            { key: 'page_access_storefront', value: String(pageAccessStorefront) },
+            { key: 'page_access_airtime', value: String(pageAccessAirtime) },
+            { key: 'page_access_utilities', value: String(pageAccessUtilities) },
+            { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
+            { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
+            { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
+            { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
+            // USSD short codes
+            { key: 'ussd_enabled', value: String(ussdEnabled) },
+            { key: 'ussd_dial_code', value: ussdDialCode },
+            { key: 'ussd_activation_price_customer', value: ussdActivationPriceCustomer },
+            { key: 'ussd_activation_price_agent', value: ussdActivationPriceAgent },
+            { key: 'ussd_activation_price_dealer', value: ussdActivationPriceDealer },
+            { key: 'ussd_activation_price_sub', value: ussdActivationPriceSub },
+            { key: 'storefront_ussd_card_enabled', value: String(storefrontUssdCard) },
+    ]
+
     const saveSettings = async () => {
         setSaving(true)
         try {
-            const updates = [
-                { key: 'paystack_fee_percent', value: paystackFee },
-                { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
-                { key: 'paystack_momo_fee_percent', value: paystackMomoFee },
-                { key: 'agent_paystack_momo_fee_percent', value: agentPaystackMomoFee },
-                { key: 'mtn_price_adjustment', value: mtnAdjustment },
-                { key: 'agent_upgrade_price', value: agentUpgradePrice },
-                { key: 'afa_price_customer', value: afaPriceCustomer },
-                { key: 'afa_price_agent', value: afaPriceAgent },
-                { key: 'afa_price_dealer', value: afaPriceDealer },
-                { key: 'afa_price_api', value: afaPriceApi },
-                { key: 'storefront_afa_enabled', value: String(storefrontAfaEnabled) },
-                { key: 'dealer_promo_enabled', value: String(dealerPromoEnabled) },
-                { key: 'landing_rc_only_enabled', value: String(landingRcOnlyEnabled) },
-                { key: 'support_email', value: supportEmail },
-                { key: 'guest_storefront_url', value: guestStorefrontUrl },
-                { key: 'whatsapp_group_link', value: whatsappGroupLink },
-                { key: 'whatsapp_channel_link', value: whatsappChannelLink },
-                { key: 'whatsapp_admin_number', value: normalizeWhatsAppNumber(whatsappAdminNumber) },
-                { key: 'whatsapp_community_link', value: whatsappCommunityLink },
-                { key: 'footer_copyright_text', value: footerCopyrightText },
-                { key: 'footer_branding_text', value: footerBrandingText },
-                { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
-                { key: 'active_sms_provider', value: smsProvider },
-                { key: 'active_sms_provider_storefront', value: storefrontSmsProvider },
-                { key: 'active_payment_provider_web', value: webPaymentProvider },
-                { key: 'active_payment_provider_shop', value: shopPaymentProvider },
-                { key: 'active_payment_provider_ussd', value: ussdPaymentProvider },
-                { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
-                { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
-                // Page access settings
-                { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
-                { key: 'page_access_data_packages', value: String(pageAccessDataPackages) },
-                { key: 'page_access_orders', value: String(pageAccessOrders) },
-                { key: 'page_access_wallet', value: String(pageAccessWallet) },
-                { key: 'page_access_complaints', value: String(pageAccessComplaints) },
-                { key: 'page_access_notifications', value: String(pageAccessNotifications) },
-                { key: 'page_access_profile', value: String(pageAccessProfile) },
-                { key: 'page_access_shop', value: String(pageAccessShop) },
-                { key: 'page_access_storefront', value: String(pageAccessStorefront) },
-                { key: 'page_access_airtime', value: String(pageAccessAirtime) },
-                { key: 'page_access_utilities', value: String(pageAccessUtilities) },
-                { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
-                { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
-                { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
-                { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
-                // USSD short codes
-                { key: 'ussd_enabled', value: String(ussdEnabled) },
-                { key: 'ussd_dial_code', value: ussdDialCode },
-                { key: 'ussd_activation_price_customer', value: ussdActivationPriceCustomer },
-                { key: 'ussd_activation_price_agent', value: ussdActivationPriceAgent },
-                { key: 'ussd_activation_price_dealer', value: ussdActivationPriceDealer },
-                { key: 'ussd_activation_price_sub', value: ussdActivationPriceSub },
-                { key: 'storefront_ussd_card_enabled', value: String(storefrontUssdCard) },
-            ]
+            const updates = buildUpdates().filter(u => loadedValues.current?.[u.key] !== u.value)
+            if (updates.length === 0) {
+                toast.info('No changes to save')
+                return
+            }
 
             const response = await fetch('/api/admin-settings', {
                 method: 'POST',
@@ -242,6 +261,7 @@ export default function AdminSettingsPage() {
                 const data = await response.json().catch(() => null)
                 throw new Error(data?.error || 'Failed to save settings')
             }
+            loadedValues.current = { ...loadedValues.current, ...Object.fromEntries(updates.map(u => [u.key, u.value])) }
             toast.success('Settings saved successfully')
         } catch (error) {
             console.error('Error saving settings:', error)
