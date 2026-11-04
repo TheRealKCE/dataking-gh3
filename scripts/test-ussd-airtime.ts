@@ -4,7 +4,7 @@
  * Drives the real POST handler as a registered (main-site) user, with an in-memory Supabase and a
  * stubbed Paystack. Pins:
  *
- *   - Airtime is listed for main-site users only — never for a shop's menu, never for a stranger —
+ *   - Member airtime is listed for main-site users — not for a shop that has priced none, never for a stranger —
  *     and switches off with ussd_airtime_enabled='false';
  *   - the network is read off the number (MTN, Telecel, AirtelTigo -> "AT", including 098 on MTN),
  *     and "1" means the caller's own number;
@@ -165,7 +165,7 @@ async function main() {
     seed([{ key: 'storefront_afa_enabled', value: 'true' }]); r = loadRoute()
     await dial(r, '233209999999', 'l4')
     out = await say(r, '233209999999', 'l4', 'kofi')
-    check("a shop's menu never lists airtime", !/Airtime/.test(out.Message) && /Welcome to Kofi Store/.test(out.Message), out.Message)
+    check("a shop that has priced no airtime does not list it (shop airtime: scripts/test-ussd-shop-airtime.ts)", !/Airtime/.test(out.Message) && /Welcome to Kofi Store/.test(out.Message), out.Message)
 
     seed(); r = loadRoute()
     out = await dial(r, '233209999999', 'l5')

@@ -111,8 +111,8 @@ const goodQuote = (over: Row = {}) => ({
     quote: { token: 'signed.token', label: 'ECG Prepaid', accountNumber: '94415486839', accountName: 'KOFI MENSAH', billAmount: 50, fee: 1.5, total: 51.5, ...over },
 })
 
-function seed(opts: { settings?: Row[]; shopUtilities?: boolean; afa?: boolean } = {}) {
-    const { settings = [], shopUtilities = true, afa = false } = opts
+function seed(opts: { settings?: Row[]; shopUtilities?: boolean; afa?: boolean; utilityMargin?: number } = {}) {
+    const { settings = [], shopUtilities = true, afa = false, utilityMargin = 1.5 } = opts
     tables = {
         admin_settings: [
             { key: 'ussd_enabled', value: 'true' },
@@ -130,7 +130,7 @@ function seed(opts: { settings?: Row[]; shopUtilities?: boolean; afa?: boolean }
         sub_agents: [],
         wallets: [{ id: 'w-ama', user_id: 'u-ama' }],
         wallet_payments: [],
-        shop_profiles: [{ id: 'sh1', shop_name: 'Kofi Store', owner_id: 'u-kofi', ussd_code: 'KOFI', ussd_status: 'active', approval_status: 'approved', is_active: true, utilities_enabled: shopUtilities }],
+        shop_profiles: [{ id: 'sh1', shop_name: 'Kofi Store', owner_id: 'u-kofi', ussd_code: 'KOFI', ussd_status: 'active', approval_status: 'approved', is_active: true, utilities_enabled: shopUtilities, utility_fee_percent: utilityMargin }],
         shop_afa_pricing: afa ? [{ shop_id: 'sh1', selling_price: 40 }] : [],
         data_packages: [], results_checker_types: [],
     }
@@ -201,6 +201,9 @@ async function main() {
 
     menu = await menuFor({ shopUtilities: false })
     check('a shop that does not accept bills does not list them', !/Utilities/.test(menu), menu)
+
+    menu = await menuFor({ utilityMargin: 0 })
+    check('a shop that accepts bills but has set no margin does not list them', !/Utilities/.test(menu), menu)
 
     menu = await menuFor({ settings: [{ key: 'active_payment_provider_ussd', value: 'hubtel' }] })
     check('the Hubtel rollback rail never lists them', !/Utilities/.test(menu), menu)

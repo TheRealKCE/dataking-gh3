@@ -28,8 +28,11 @@ import {
     AIR_PHONE_PROMPT,
     AIRTIME_ITEM_NAME,
     quoteAirtime,
+    quoteShopAirtime,
     readAirtimeNumber,
     recordAirtimePayment,
+    shopAirtimeNetworks,
+    type AirtimeNetwork,
     type AirtimeQuote,
 } from '@/lib/ussd-airtime';
 import {
@@ -205,6 +208,12 @@ interface UssdFlags {
     utilityLaunched: boolean;
     /** Airtime on the menu for main-site users. On unless ussd_airtime_enabled is 'false'. */
     airtimeEnabled: boolean;
+    /**
+     * admin_settings.storefront_airtime_enabled — the switch the web storefront obeys. A shop
+     * lists airtime on USSD only while it is not 'false', so one switch stops shop airtime on
+     * both channels.
+     */
+    airtimeStorefrontOpen: boolean;
 }
 
 let ussdFlagCache: { flags: UssdFlags; at: number } | null = null;
@@ -227,7 +236,7 @@ async function getUssdFlags(): Promise<UssdFlags> {
             getSupabaseAdmin()
                 .from('admin_settings')
                 .select('key, value')
-                .in('key', [USSD_ENABLED_KEY, USSD_PROVIDER_KEY, MEMBER_SKIP_CODE_KEY, AFA_ENABLED_KEY, 'storefront_afa_enabled', UTILITIES_ENABLED_KEY, 'utility_public_launch', AIRTIME_ENABLED_KEY, ...ALL_MTN_GATE_KEYS]),
+                .in('key', [USSD_ENABLED_KEY, USSD_PROVIDER_KEY, MEMBER_SKIP_CODE_KEY, AFA_ENABLED_KEY, 'storefront_afa_enabled', UTILITIES_ENABLED_KEY, 'utility_public_launch', AIRTIME_ENABLED_KEY, 'storefront_airtime_enabled', ...ALL_MTN_GATE_KEYS]),
             3000,
             'ussd flags fetch timeout'
         );
@@ -265,6 +274,7 @@ async function getUssdFlags(): Promise<UssdFlags> {
             utilitiesEnabled: String(raw[UTILITIES_ENABLED_KEY] ?? '') === 'true',
             utilityLaunched: String(raw['utility_public_launch'] ?? '') === 'true',
             airtimeEnabled: String(raw[AIRTIME_ENABLED_KEY] ?? 'true').toLowerCase() !== 'false',
+            airtimeStorefrontOpen: String(raw['storefront_airtime_enabled'] ?? 'true').toLowerCase() !== 'false',
         };
         ussdFlagCache = { flags, at: Date.now() };
         return flags;
@@ -279,7 +289,7 @@ async function getUssdFlags(): Promise<UssdFlags> {
         // runs when we could not read the setting at all — the same reasoning as
         // loadGateSettings(), which also treats an unreadable setting as off.
         return ussdFlagCache?.flags
-            ?? { enabled: false, paymentProvider: 'paystack_momo', mtnGateEnabled: false, memberSkipCode: false, afaEnabled: false, afaStorefrontOpen: false, utilitiesEnabled: false, utilityLaunched: false, airtimeEnabled: false };
+            ?? { enabled: false, paymentProvider: 'paystack_momo', mtnGateEnabled: false, memberSkipCode: false, afaEnabled: false, afaStorefrontOpen: false, utilitiesEnabled: false, utilityLaunched: false, airtimeEnabled: false, airtimeStorefrontOpen: false };
     }
 }
 
@@ -330,8 +340,8 @@ export async function POST(req: Request) {
                         // A sub-agent member is not offered AFA: see loadAfaOffer.
                         afaListed: ussdFlags.afaEnabled && ussdFlags.paymentProvider === 'paystack_momo' && !member.sub,
                         utilListed: ussdFlags.utilitiesEnabled && ussdFlags.utilityLaunched && ussdFlags.paymentProvider === 'paystack_momo',
-                        // Airtime is for main-site users: a shop's airtime is priced by the shop
-                        // and settled through the storefront order processor, which USSD does not use.
+                        // A member's airtime is priced at their own fee band and settles through its
+                        // payment record; a shop's ('sair') is listed at the short-code step instead.
                         airListed: ussdFlags.airtimeEnabled && ussdFlags.paymentProvider === 'paystack_momo',
                     };
                     waitUntil((async () => {
@@ -469,7 +479,7 @@ export async function POST(req: Request) {
                 try {
                     const shopPromise = getSupabaseAdmin()
                         .from('shop_profiles')
-                        .select('id, shop_name, owner_id, utilities_enabled')
+                        .select('id, shop_name, owner_id, utilities_enabled, utility_fee_percent, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
                         .eq('ussd_code', code)
                         .eq('ussd_status', 'active')
                         .eq('approval_status', 'approved')
@@ -522,10 +532,17 @@ export async function POST(req: Request) {
                 // AFA is listed only for a shop that has priced it. One small read, and
                 // only when the switches are on; if it is slow or fails the shop simply
                 // shows no AFA line rather than delaying the menu.
-                // Bills are listed for a shop that accepts them. No read needed: the flag rides
-                // on the shop row already fetched. The Node-side route re-checks everything.
+                // Bills are listed for a shop that accepts them AND has set its margin. No read
+                // needed: both ride on the shop row already fetched. The Node-side route
+                // re-checks everything.
                 sessionData.utilListed = ussdFlags.utilitiesEnabled && ussdFlags.utilityLaunched
-                    && ussdFlags.paymentProvider === 'paystack_momo' && shop.utilities_enabled === true;
+                    && ussdFlags.paymentProvider === 'paystack_momo' && shop.utilities_enabled === true
+                    && Number(shop.utility_fee_percent) > 0;
+                // Airtime is listed for a shop that has priced at least one network, and only
+                // those networks are sold (lib/ussd-airtime.ts, quoteShopAirtime). Same row again.
+                sessionData.airNetworks = shopAirtimeNetworks(shop);
+                sessionData.airListed = ussdFlags.airtimeEnabled && ussdFlags.airtimeStorefrontOpen
+                    && ussdFlags.paymentProvider === 'paystack_momo' && sessionData.airNetworks.length > 0;
                 sessionData.afaListed = false;
                 if (ussdFlags.afaEnabled && ussdFlags.afaStorefrontOpen && ussdFlags.paymentProvider === 'paystack_momo') {
                     try {
@@ -601,7 +618,9 @@ export async function POST(req: Request) {
                 const extraKey = /^\d+$/.test(userInput || '') ? extraServices(sessionData)[parseInt(userInput, 10) - 3] : undefined;
 
                 if (extraKey === 'air') {
-                    sessionData.orderType = 'air';
+                    // A shop's airtime is a shop sale ('sair'), settled from the session by the
+                    // storefront's processor; a member's ('air') settles through its payment record.
+                    sessionData.orderType = sessionData.mode === 'shop' ? 'sair' : 'air';
                     sessionData.air = {};
                     saveAsync(SessionId, 'air_phone', sessionData);
                     return respond(SessionId, 'response', AIR_PHONE_PROMPT, { label: 'Number to top up', fieldType: 'phone' });
@@ -740,6 +759,12 @@ export async function POST(req: Request) {
                     saveAsync(SessionId, 'air_phone', sessionData);
                     return respond(SessionId, 'response', `${target.error}\n${AIR_PHONE_PROMPT}`, { label: 'Number to top up', fieldType: 'phone' });
                 }
+                // A shop sells airtime only on the networks it has priced: say so before the
+                // caller types an amount, not after.
+                if (sessionData.mode === 'shop' && !(sessionData.airNetworks || []).includes(target.network)) {
+                    saveAsync(SessionId, 'air_phone', sessionData);
+                    return respond(SessionId, 'response', screenText(`${sessionData.shopName} does not sell ${target.network} airtime.\n${AIR_PHONE_PROMPT}`, AIR_PHONE_PROMPT), { label: 'Number to top up', fieldType: 'phone' });
+                }
                 sessionData.air = { phone: target.phone, network: target.network };
                 saveAsync(SessionId, 'air_amount', sessionData);
                 return respond(SessionId, 'response', `${target.network} ${target.phone}\n${AIR_AMOUNT_PROMPT}`, { label: 'Amount', fieldType: 'decimal' });
@@ -747,7 +772,7 @@ export async function POST(req: Request) {
 
             case 'air_amount': {
                 const a = sessionData.air || {};
-                if (!a.phone || !a.network || !sessionData.member) {
+                if (!a.phone || !a.network || !(sessionData.mode === 'shop' ? sessionData.shopId : sessionData.member)) {
                     endSession(SessionId);
                     return respond(SessionId, 'release', 'Session expired. Please dial again.');
                 }
@@ -765,7 +790,7 @@ export async function POST(req: Request) {
                 let priced: { ok: boolean; error?: string; quote?: AirtimeQuote } = { ok: false, error: 'Could not price that. Please try again.' };
                 try {
                     priced = await withTimeout(
-                        quoteAirtime(getSupabaseAdmin(), sessionData.member, { phone: a.phone, network: a.network, amount: amount.value as number }),
+                        priceAirtimeFor(sessionData, { phone: a.phone, network: a.network, amount: amount.value as number }),
                         6000,
                         'Airtime quote timeout'
                     );
@@ -1105,11 +1130,12 @@ export async function POST(req: Request) {
                 }
 
                 const price = parseFloat(String(sessionData.selectedPrice || '0'));
-                const orderType: 'data' | 'rc' | 'afa' | 'util' | 'air' =
+                const orderType: 'data' | 'rc' | 'afa' | 'util' | 'air' | 'sair' =
                     sessionData.orderType === 'data' ? 'data'
                         : sessionData.orderType === 'afa' ? 'afa'
                             : sessionData.orderType === 'util' ? 'util'
-                                : sessionData.orderType === 'air' ? 'air' : 'rc';
+                                : sessionData.orderType === 'air' ? 'air'
+                                    : sessionData.orderType === 'sair' ? 'sair' : 'rc';
 
                 // The Hubtel rollback rail fulfils data and checkers only. A session
                 // opened before an admin flipped to it must not charge for an AFA it
@@ -1120,6 +1146,12 @@ export async function POST(req: Request) {
                 }
                 // Airtime settles through its own payment record too, and only for a main-site user.
                 if (orderType === 'air' && (ussdFlags.paymentProvider === 'hubtel' || sessionData.mode !== 'member' || !sessionData.air?.phone)) {
+                    endSession(SessionId);
+                    return respond(SessionId, 'release', 'Airtime is unavailable right now. Please try again later.');
+                }
+                // A shop's airtime settles through the storefront processor, which the Hubtel
+                // rollback rail does not reach.
+                if (orderType === 'sair' && (ussdFlags.paymentProvider === 'hubtel' || sessionData.mode !== 'shop' || !sessionData.shopId || !sessionData.air?.phone)) {
                     endSession(SessionId);
                     return respond(SessionId, 'release', 'Airtime is unavailable right now. Please try again later.');
                 }
@@ -1229,6 +1261,14 @@ export async function POST(req: Request) {
                                         reference, quote: again.quote, payerMsisdn, sessionId: SessionId,
                                     });
                                 })()
+                                // A shop's airtime is re-priced the same way; the session row is its
+                                // only record, and the storefront processor re-checks the amount again.
+                                : orderType === 'sair'
+                                ? quoteShopAirtime(getSupabaseAdmin(), sessionData.shopId, {
+                                    phone: sessionData.air.phone, network: sessionData.air.network, amount: sessionData.air.amount,
+                                }).then((again) => {
+                                    if (!again.ok || !again.quote || again.quote.total !== price) throw new Error('Airtime price changed');
+                                })
                                 : orderType === 'util'
                                 ? callUtilitiesApi(
                                     new URL(req.url).origin,
@@ -1608,6 +1648,16 @@ function extraServices(sessionData: any): Array<'afa' | 'air' | 'util'> {
 }
 
 const EXTRA_SERVICE_LABELS = { afa: 'AFA Registration', air: 'Airtime', util: 'Utilities' } as const;
+
+/** A shop's caller pays the shop's airtime price; a registered user pays their own. */
+function priceAirtimeFor(
+    sessionData: any,
+    params: { phone: string; network: AirtimeNetwork; amount: number }
+): Promise<{ ok: boolean; error?: string; quote?: AirtimeQuote }> {
+    return sessionData.mode === 'shop'
+        ? quoteShopAirtime(getSupabaseAdmin(), sessionData.shopId, params)
+        : quoteAirtime(getSupabaseAdmin(), sessionData.member, params);
+}
 
 /** The name a main-site user is welcomed to. */
 const MEMBER_MENU_BRAND = 'ARHMSTECH';

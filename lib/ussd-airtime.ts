@@ -1,5 +1,9 @@
 /**
- * Airtime over USSD, for main-site users.
+ * Airtime over USSD, for main-site users and for shops that have priced it.
+ *
+ * A shop's airtime (quoteShopAirtime) is priced by the shop's own fees and settled as a
+ * shop sale through lib/ussd-shop-airtime-fulfillment.ts; everything below about the
+ * wallet_payments row is the main-site path.
  *
  * The caller names the number to top up (their own by default) and an amount. The network is
  * read off the number, and the beneficiary receives exactly the amount typed — the platform
@@ -129,6 +133,97 @@ export async function quoteAirtime(
             feeAmount,
             total: round2(amount + feeAmount),
             band,
+        },
+    }
+}
+
+/** The shop_profiles columns a shop prices airtime with, one percentage per network. */
+export interface ShopAirtimeFees {
+    airtime_fee_mtn?: number | string | null
+    airtime_fee_telecel?: number | string | null
+    airtime_fee_at?: number | string | null
+}
+
+/**
+ * The networks a shop sells airtime on: those it has set a margin for. A margin of 0 is
+ * not a price — the storefront's processor rejects a sale with no profit — so a shop
+ * that has priced nothing does not list airtime at all.
+ */
+export function shopAirtimeNetworks(shop: ShopAirtimeFees): AirtimeNetwork[] {
+    return (['MTN', 'Telecel', 'AT'] as AirtimeNetwork[])
+        .filter((n) => Number((shop as any)[`airtime_fee_${KEY_OF[n]}`]) > 0)
+}
+
+/**
+ * Prices a shop's top-up exactly as lib/shop-order-processor.ts will re-price it at
+ * settlement (it refuses a payment more than five pesewas off): the shop's own fee for the
+ * network plus the platform fee for the owner's role, both percentages of the amount, on
+ * top of the amount — the storefront's exact-amount mode. The admin fee keys are the three
+ * the processor reads (customer, agent, dealer); any other role pays no platform fee there,
+ * so none here either.
+ *
+ * Called when the amount is entered and again at confirm, like quoteAirtime.
+ */
+export async function quoteShopAirtime(
+    db: any,
+    shopId: string,
+    params: { phone: string; network: AirtimeNetwork; amount: number }
+): Promise<{ ok: boolean; error?: string; quote?: AirtimeQuote }> {
+    const { phone, network, amount } = params
+    const key = KEY_OF[network]
+    if (!key) return { ok: false, error: 'That network is not supported.' }
+
+    const [{ data: shop }, { data: settingsRows }] = await Promise.all([
+        db.from('shop_profiles').select('owner_id, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at').eq('id', shopId).maybeSingle(),
+        db.from('admin_settings').select('key, value').in('key', [
+            'storefront_airtime_enabled',
+            `airtime_enabled_${key}`,
+            `airtime_fee_${key}_customer`,
+            `airtime_fee_${key}_agent`,
+            `airtime_fee_${key}_dealer`,
+            'airtime_min_amount',
+            'airtime_max_amount',
+        ]),
+    ])
+    const settings: Record<string, string> = {}
+    for (const row of (settingsRows || []) as any[]) settings[row.key] = row.value
+
+    if (!shop) return { ok: false, error: 'Airtime is unavailable right now.' }
+    if (settings.storefront_airtime_enabled === 'false' || settings[`airtime_enabled_${key}`] === 'false') {
+        return { ok: false, error: `${network} airtime is unavailable right now.` }
+    }
+
+    const shopFee = Number(shop[`airtime_fee_${key}`]) || 0
+    if (!(shopFee > 0)) return { ok: false, error: `${network} airtime is not sold here.` }
+
+    const { data: owner } = await db.from('users').select('role').eq('id', shop.owner_id).maybeSingle()
+    const ownerRole = owner?.role || 'customer'
+    const adminFee = parseFloat(settings[`airtime_fee_${key}_${ownerRole}`] || '0') || 0
+
+    // The storefront's own cap: it refuses the sale outright rather than charge more.
+    if (shopFee + adminFee > 10) return { ok: false, error: `${network} airtime is unavailable right now.` }
+
+    const min = Math.max(parseFloat(settings.airtime_min_amount || '1') || 1, MIN_AIRTIME_GHS)
+    const max = parseFloat(settings.airtime_max_amount || '500') || 500
+    if (!Number.isFinite(amount) || amount < min) return { ok: false, error: `Minimum is GHS ${min.toFixed(2)}.` }
+    if (amount > max) return { ok: false, error: `Maximum is GHS ${max.toFixed(2)}.` }
+
+    const airtimeAmount = round2(amount)
+    const feeRate = shopFee + adminFee
+    // The processor's arithmetic, to the pesewa: Math.round((amount + amount × rate) × 100).
+    const total = Math.round((airtimeAmount + airtimeAmount * (feeRate / 100)) * 100) / 100
+
+    return {
+        ok: true,
+        quote: {
+            network,
+            phone,
+            airtimeAmount,
+            feeRate,
+            feeAmount: round2(total - airtimeAmount),
+            total,
+            // The caller is a shop's customer; the band only labels the quote.
+            band: 'customer',
         },
     }
 }

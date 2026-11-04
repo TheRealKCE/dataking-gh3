@@ -28,6 +28,10 @@ export async function fulfillUssdSession(params: {
         // result-checker fulfiller.
         return { success: false, error: 'This order settles through its payment record' }
     }
+    if (orderType === 'sair') {
+        // A shop's airtime is a shop sale: it settles from the session, like a shop's data.
+        return (await import('@/lib/ussd-shop-airtime-fulfillment')).fulfillUSSDShopAirtimeBySession(rest)
+    }
     if (orderType === 'afa') {
         return (await import('@/lib/ussd-afa-fulfillment')).fulfillUSSDAFABySession(rest)
     }
