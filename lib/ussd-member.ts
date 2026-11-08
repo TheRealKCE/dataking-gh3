@@ -26,7 +26,7 @@ export interface UssdMember {
     role: string
     isApiUser: boolean
     /** Set when the member is a sub-agent: they buy at their upline's prices. */
-    sub: { status: string | null; uplineShopId: string } | null
+    sub: { status: string | null; uplineShopId: string; shopName?: string | null } | null
 }
 
 /** Marks a wallet_payments row as a USSD member order rather than a plain top-up. */
@@ -70,7 +70,9 @@ export async function findMemberByPhone(db: any, msisdn: string): Promise<UssdMe
 
     const { data: membership } = await db
         .from('sub_agents')
-        .select('status, upline_shop_id')
+        // The upline's name rides along so the menu greets a sub-agent with their shop's
+        // brand, not ARHMSTECH. Same embed lib/brand-context.ts uses; no extra round trip.
+        .select('status, upline_shop_id, shop_profiles!upline_shop_id(shop_name)')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -80,7 +82,11 @@ export async function findMemberByPhone(db: any, msisdn: string): Promise<UssdMe
         role: user.role || 'customer',
         isApiUser: user.is_api_user === true,
         sub: membership?.upline_shop_id
-            ? { status: membership.status ?? null, uplineShopId: membership.upline_shop_id }
+            ? {
+                status: membership.status ?? null,
+                uplineShopId: membership.upline_shop_id,
+                shopName: String((membership as any).shop_profiles?.shop_name || '').trim() || null,
+            }
             : null,
     }
 }

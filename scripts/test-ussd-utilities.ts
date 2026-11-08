@@ -210,13 +210,13 @@ async function main() {
 
     menu = await menuFor({}, 'member')
     check('a registered user sees the platform menu in order: AFA 3, Buy Airtime 4, Pay Utility 5',
-        menu.endsWith('3. AFA Registration\n4. Buy Airtime\n5. Pay Utility') && /^Welcome to ARHMSTECH\nChoose a Service:/.test(menu), JSON.stringify(menu))
+        menu.endsWith('3. AFA Registration\n4. Buy Airtime\n5. Pay Utility\nOr type shop code') && /^Welcome to ARHMSTECH\nChoose a Service:/.test(menu), JSON.stringify(menu))
 
     menu = await menuFor({ settings: [{ key: 'ussd_afa_enabled', value: 'false' }] }, 'member')
-    check('…and with AFA switched off, the rest move up: Buy Airtime 3, Pay Utility 4', menu.endsWith('3. Buy Airtime\n4. Pay Utility') && !/AFA/.test(menu), menu)
+    check('…and with AFA switched off, the rest move up: Buy Airtime 3, Pay Utility 4', menu.endsWith('3. Buy Airtime\n4. Pay Utility\nOr type shop code') && !/AFA/.test(menu), menu)
 
     menu = await menuFor({ settings: [{ key: 'ussd_airtime_enabled', value: 'false' }] }, 'member')
-    check('…and with airtime switched off, Pay Utility is 4 (after AFA)', menu.endsWith('3. AFA Registration\n4. Pay Utility') && !/Airtime/.test(menu), menu)
+    check('…and with airtime switched off, Pay Utility is 4 (after AFA)', menu.endsWith('3. AFA Registration\n4. Pay Utility\nOr type shop code') && !/Airtime/.test(menu), menu)
 
     // ── The conversation ────────────────────────────────────────────────────────
     seed(); r = loadRoute()

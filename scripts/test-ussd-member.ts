@@ -246,6 +246,39 @@ async function main() {
     out = await say(r, '233209999999', 's11', 'kofi')
     check('a non-member still enters a shop code and gets that shop menu', /Welcome to Kofi Store/.test(out.Message), out.Message)
 
+    // ── A member who is a shop's customer can still reach the shop ──────────────
+    // The shop-owner complaint: their customers dialled, typed the shop's code and got
+    // ARHMSTECH at ARHMS prices, because having an account skipped the code screen.
+    const KOFI = { id: 'sh1', shop_name: 'Kofi Store', owner_id: 'u-kofi', ussd_code: 'KOFI', ussd_status: 'active', approval_status: 'approved', is_active: true }
+    seed({
+        shop_profiles: [{ ...KOFI }],
+        // The flat 'data_packages.is_available' key stands in for the embed filter, which
+        // this stub cannot evaluate on a nested object.
+        shop_pricing: [{ shop_id: 'sh1', package_id: 'p1', selling_price: 12.5, 'data_packages.is_available': true, data_packages: { id: 'p1', network: 'MTN', size: '1GB', is_available: true, sort_order: 1 } }],
+    })
+    r = loadRoute()
+    out = await init(r, MEMBER_PHONE, 's12')
+    check('member menu tells the caller they can type a shop code', /Or type shop code/.test(out.Message), out.Message)
+    out = await say(r, MEMBER_PHONE, 's12', 'kofi')
+    check("member typing a shop code gets that shop's menu, not ARHMSTECH", /^Welcome to Kofi Store/.test(out.Message), out.Message)
+    const s12 = tables.hubtel_sessions.find((s) => s.session_id === 's12')
+    check('  …and the session is now that shop\'s (member dropped)', s12?.data?.mode === 'shop' && s12?.data?.shopId === 'sh1' && !s12?.data?.member, JSON.stringify(s12?.data))
+    out = await say(r, MEMBER_PHONE, 's12', '1')
+    out = await say(r, MEMBER_PHONE, 's12', '1')
+    check("  …and is quoted the shop's edited price (12.5), not the agent's 8", /12\.5/.test(out.Message) && !/\b8 GHS|\(8\b/.test(out.Message), out.Message)
+
+    seed({ shop_profiles: [{ ...KOFI }] })
+    r = loadRoute()
+    await init(r, MEMBER_PHONE, 's13')
+    out = await say(r, MEMBER_PHONE, 's13', 'ZZZZ')
+    check('member typing an unknown code stays on their menu with a note', /^Invalid shop code\.\nWelcome to ARHMSTECH/.test(out.Message), out.Message)
+
+    // ── A sub-agent is welcomed by their upline shop ────────────────────────────
+    seed({ sub_agents: [{ user_id: 'u-ama', status: 'active', upline_shop_id: 'sh1', shop_profiles: { shop_name: 'Kofi Store' } }] })
+    r = loadRoute()
+    out = await init(r, MEMBER_PHONE, 's14')
+    check("a sub-agent's menu carries the upline shop's name", /^Welcome to Kofi Store\nChoose a Service:/.test(out.Message), out.Message)
+
     console.log(`\n${passed} passed, ${failed} failed`)
     process.exit(failed === 0 ? 0 : 1)
 }

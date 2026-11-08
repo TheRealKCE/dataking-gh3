@@ -471,43 +471,15 @@ export async function POST(req: Request) {
                     return respond(SessionId, 'response', WELCOME_MESSAGE, { label: 'Short code' });
                 }
 
-                // Both lookups fire together: this is the latency-critical keypress,
-                // and running them in series would put two round trips inside
-                // Hubtel's window for no reason.
-                let houseCode: string | null = null;
-                let shop: any = null;
+                let entered: ShortCodeResult;
                 try {
-                    const shopPromise = getSupabaseAdmin()
-                        .from('shop_profiles')
-                        .select('id, shop_name, owner_id, utilities_enabled, utility_fee_percent, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
-                        .eq('ussd_code', code)
-                        .eq('ussd_status', 'active')
-                        .eq('approval_status', 'approved')
-                        .eq('is_active', true)
-                        .maybeSingle();
-
-                    const [houseResult, shopResult] = await Promise.all([
-                        getHouseCode(),
-                        withTimeout(shopPromise, 8000, 'Shop lookup timeout'),
-                    ]);
-                    houseCode = houseResult;
-                    shop = shopResult.data;
+                    entered = await enterShortCode(code, sessionData, ussdFlags);
                 } catch (e: any) {
                     console.error('[Hubtel Interact] Shop lookup failed:', e?.message);
                     return respond(SessionId, 'release', 'System busy. Please dial again.');
                 }
 
-                // The house short code is ARHMS selling direct: platform catalogue,
-                // platform prices, no shop attribution. Unchanged from before.
-                if (houseCode && code === houseCode) {
-                    sessionData.mode = 'platform';
-                    saveAsync(SessionId, 'choose_service', sessionData);
-                    return respond(SessionId, 'response', renderServiceMenu('ARHMS'), {
-                        label: 'Select service',
-                    });
-                }
-
-                if (!shop) {
+                if (entered === 'none') {
                     const attempts = (sessionData.codeAttempts || 0) + 1;
                     if (attempts >= MAX_CODE_ATTEMPTS) {
                         endSession(SessionId);
@@ -521,40 +493,6 @@ export async function POST(req: Request) {
                         `Invalid short code.\nAttempt ${attempts} of ${MAX_CODE_ATTEMPTS}.\nEnter short code:`,
                         { label: 'Short code' }
                     );
-                }
-
-                sessionData.mode = 'shop';
-                sessionData.shopId = shop.id;
-                sessionData.shopName = shop.shop_name;
-                sessionData.ownerId = shop.owner_id;
-                sessionData.codeAttempts = 0;
-
-                // AFA is listed only for a shop that has priced it. One small read, and
-                // only when the switches are on; if it is slow or fails the shop simply
-                // shows no AFA line rather than delaying the menu.
-                // Bills are listed for a shop that accepts them AND has set its margin. No read
-                // needed: both ride on the shop row already fetched. The Node-side route
-                // re-checks everything.
-                sessionData.utilListed = ussdFlags.utilitiesEnabled && ussdFlags.utilityLaunched
-                    && ussdFlags.paymentProvider === 'paystack_momo' && shop.utilities_enabled === true
-                    && Number(shop.utility_fee_percent) > 0;
-                // Airtime is listed for a shop that has priced at least one network, and only
-                // those networks are sold (lib/ussd-airtime.ts, quoteShopAirtime). Same row again.
-                sessionData.airNetworks = shopAirtimeNetworks(shop);
-                sessionData.airListed = ussdFlags.airtimeEnabled && ussdFlags.airtimeStorefrontOpen
-                    && ussdFlags.paymentProvider === 'paystack_momo' && sessionData.airNetworks.length > 0;
-                sessionData.afaListed = false;
-                if (ussdFlags.afaEnabled && ussdFlags.afaStorefrontOpen && ussdFlags.paymentProvider === 'paystack_momo') {
-                    try {
-                        const { data: afaRow } = await withTimeout(
-                            getSupabaseAdmin().from('shop_afa_pricing').select('selling_price').eq('shop_id', shop.id).maybeSingle(),
-                            1500,
-                            'AFA price lookup timeout'
-                        );
-                        sessionData.afaListed = Number(afaRow?.selling_price) > 0;
-                    } catch (e: any) {
-                        console.warn('[Hubtel Interact] AFA listing skipped:', e?.message);
-                    }
                 }
 
                 saveAsync(SessionId, 'choose_service', sessionData);
@@ -572,6 +510,24 @@ export async function POST(req: Request) {
                     saveAsync(SessionId, 'choose_service', sessionData);
                     return respond(SessionId, 'response', msg, { label: 'Select service' });
                 };
+
+                // A main-site member skipped the short-code screen, but may be dialling to
+                // buy from a shop: typing its code here opens that shop, with its name and
+                // its prices. Codes are 4 characters, so they never clash with a menu number.
+                const typedCode = String(userInput || '').toUpperCase().replace(/\s+/g, '');
+                if (sessionData.mode === 'member' && SHOP_CODE_PATTERN.test(typedCode)) {
+                    let entered: ShortCodeResult;
+                    try {
+                        entered = await enterShortCode(typedCode, sessionData, ussdFlags);
+                    } catch (e: any) {
+                        console.error('[Hubtel Interact] Shop lookup (member menu) failed:', e?.message);
+                        return reprompt(`System busy. Try again.\n${menu}`);
+                    }
+                    if (entered === 'none') {
+                        return reprompt(`Invalid shop code.\n${menu}`);
+                    }
+                    return reprompt(serviceMenuFor(sessionData));
+                }
 
                 if (userInput === '2') {
                     const checkers = await loadCheckers(sessionData);
@@ -1515,6 +1471,93 @@ function endSession(sessionId: string): void {
     })());
 }
 
+type ShortCodeResult = 'house' | 'shop' | 'none';
+
+/** What a shop short code looks like (assign_shop_ussd_code): 4 of 2-9 / A-Z. */
+const SHOP_CODE_PATTERN = /^[2-9A-Z]{4}$/;
+
+/**
+ * Resolves a typed short code and, when it is one, turns the session into that shop's
+ * (or the house code's) session in place. Throws if the lookup itself fails.
+ *
+ * Used by the short-code screen AND the main-site member menu: a caller whose number has
+ * an ARHMS account skips the short-code screen, so a shop's customer who happens to have
+ * an account must still be able to reach the shop by typing its code there. Without
+ * that they saw ARHMSTECH at platform prices instead of the shop's name and prices.
+ */
+async function enterShortCode(code: string, sessionData: any, ussdFlags: UssdFlags): Promise<ShortCodeResult> {
+    // Both lookups fire together: this is the latency-critical keypress, and running
+    // them in series would put two round trips inside Hubtel's window for no reason.
+    const shopPromise = getSupabaseAdmin()
+        .from('shop_profiles')
+        .select('id, shop_name, owner_id, utilities_enabled, utility_fee_percent, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
+        .eq('ussd_code', code)
+        .eq('ussd_status', 'active')
+        .eq('approval_status', 'approved')
+        .eq('is_active', true)
+        .maybeSingle();
+
+    const [houseCode, shopResult] = await Promise.all([
+        getHouseCode(),
+        withTimeout(shopPromise, 8000, 'Shop lookup timeout'),
+    ]);
+    const shop: any = shopResult.data;
+
+    const isHouse = !!houseCode && code === houseCode;
+    if (!isHouse && !shop) return 'none';
+
+    // Whatever this session was (a member's menu, most likely), it is the code's now.
+    delete sessionData.member;
+    delete sessionData.shopId;
+    delete sessionData.shopName;
+    delete sessionData.ownerId;
+    delete sessionData.airNetworks;
+    sessionData.afaListed = false;
+    sessionData.utilListed = false;
+    sessionData.airListed = false;
+    sessionData.codeAttempts = 0;
+
+    // The house short code is ARHMS selling direct: platform catalogue, platform
+    // prices, no shop attribution.
+    if (isHouse) {
+        sessionData.mode = 'platform';
+        return 'house';
+    }
+
+    sessionData.mode = 'shop';
+    sessionData.shopId = shop.id;
+    sessionData.shopName = shop.shop_name;
+    sessionData.ownerId = shop.owner_id;
+
+    // Bills are listed for a shop that accepts them AND has set its margin. No read
+    // needed: both ride on the shop row already fetched. The Node-side route
+    // re-checks everything.
+    sessionData.utilListed = ussdFlags.utilitiesEnabled && ussdFlags.utilityLaunched
+        && ussdFlags.paymentProvider === 'paystack_momo' && shop.utilities_enabled === true
+        && Number(shop.utility_fee_percent) > 0;
+    // Airtime is listed for a shop that has priced at least one network, and only
+    // those networks are sold (lib/ussd-airtime.ts, quoteShopAirtime). Same row again.
+    sessionData.airNetworks = shopAirtimeNetworks(shop);
+    sessionData.airListed = ussdFlags.airtimeEnabled && ussdFlags.airtimeStorefrontOpen
+        && ussdFlags.paymentProvider === 'paystack_momo' && sessionData.airNetworks.length > 0;
+    // AFA is listed only for a shop that has priced it. One small read, and only when
+    // the switches are on; if it is slow or fails the shop simply shows no AFA line
+    // rather than delaying the menu.
+    if (ussdFlags.afaEnabled && ussdFlags.afaStorefrontOpen && ussdFlags.paymentProvider === 'paystack_momo') {
+        try {
+            const { data: afaRow } = await withTimeout(
+                getSupabaseAdmin().from('shop_afa_pricing').select('selling_price').eq('shop_id', shop.id).maybeSingle(),
+                1500,
+                'AFA price lookup timeout'
+            );
+            sessionData.afaListed = Number(afaRow?.selling_price) > 0;
+        } catch (e: any) {
+            console.warn('[Hubtel Interact] AFA listing skipped:', e?.message);
+        }
+    }
+    return 'shop';
+}
+
 async function getHouseCode(): Promise<string | null> {
     try {
         const promise = getSupabaseAdmin()
@@ -1674,7 +1717,11 @@ function serviceMenuFor(sessionData: any): string {
         const memberExtras = extraServices(sessionData)
             .map((key, i) => `\n${3 + i}. ${MEMBER_SERVICE_LABELS[key]}`)
             .join('');
-        return `Welcome to ${MEMBER_MENU_BRAND}\nChoose a Service:\n1. Data Bundles\n2. Waec Results Checker${memberExtras}`;
+        // A sub-agent buys at their upline shop's prices, so they are welcomed by that shop.
+        const upline = String(sessionData.member?.sub?.shopName || '').trim();
+        const brand = upline ? (upline.length > 20 ? `${upline.slice(0, 19)}.` : upline) : MEMBER_MENU_BRAND;
+        // The last line tells a shop's customer who has an account how to reach the shop.
+        return `Welcome to ${brand}\nChoose a Service:\n1. Data Bundles\n2. Waec Results Checker${memberExtras}\nOr type shop code`;
     }
     if (sessionData.mode === 'shop' && extras) {
         const shop = String(sessionData.shopName || 'ARHMS');
