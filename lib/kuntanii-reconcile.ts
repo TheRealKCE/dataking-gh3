@@ -93,23 +93,47 @@ export async function reconcileKuntaniiOrders(opts: { runBudgetMs?: number } = {
     let checked = 0, updated = 0, failed = 0, notFound = 0
 
     // ── Backlog, oldest first ─────────────────────────────────────────────────
-    const [{ data: mainRows, error: mainErr }, { data: shopRows, error: shopErr }] = await Promise.all([
+    // If migration 20261108000000 hasn't run, kuntanii_reference doesn't exist and
+    // selecting it fails the whole query. Fall back to the columns that always exist;
+    // the order id is still a valid lookup key (it is the externalOrderId we sent).
+    const selectWithFallback = async (table: 'orders' | 'shop_orders', cols: string, base: string, filter: (q: any) => any) => {
+        let res = await filter(supabase.from(table).select(cols)).order('created_at', { ascending: true }).limit(BATCH)
+        if (res.error && /kuntanii_reference/i.test(res.error.message || '')) {
+            res = await filter(supabase.from(table).select(base)).order('created_at', { ascending: true }).limit(BATCH)
+        }
+        return res
+    }
+    const [{ data: mainRows, error: mainErr }, { data: shopRows, error: shopErr }, { data: attemptRows }] = await Promise.all([
+        selectWithFallback('orders', 'id, shop_order_id, kuntanii_reference, created_at', 'id, shop_order_id, created_at',
+            q => q.eq('fulfillment_method', 'kuntanii').eq('status', 'processing')),
+        selectWithFallback('shop_orders', 'id, kuntanii_reference, created_at', 'id, created_at',
+            q => q.eq('fulfilled_by', 'kuntanii').eq('status', 'processing')),
+        // Orders Kuntanii accepted whose fulfillment_method stamp was shed (e.g. the
+        // CHECK constraint didn't allow 'kuntanii' yet). supplier_attempts survives
+        // that, so it is the only trace. Recent orders only; errors (column missing)
+        // are ignored — this is a best-effort extra pass.
         supabase.from('orders')
-            .select('id, shop_order_id, kuntanii_reference, created_at')
-            .eq('fulfillment_method', 'kuntanii').eq('status', 'processing')
-            .order('created_at', { ascending: true }).limit(BATCH),
-        supabase.from('shop_orders')
-            .select('id, kuntanii_reference, created_at')
-            .eq('fulfilled_by', 'kuntanii').eq('status', 'processing')
+            .select('id, shop_order_id, created_at, supplier_attempts')
+            .eq('status', 'processing')
+            .gte('created_at', new Date(Date.now() - 3 * 24 * 3600_000).toISOString())
+            .contains('supplier_attempts', [{ supplier: 'kuntanii' }])
             .order('created_at', { ascending: true }).limit(BATCH),
     ])
     if (mainErr) errors.push(`orders query failed: ${mainErr.message}`)
     if (shopErr) errors.push(`shop_orders query failed: ${shopErr.message}`)
 
+    // Keep only orders whose LAST supplier call was a Kuntanii acceptance — if a
+    // later supplier took over, that supplier owns the order.
+    const unstampedRows = (attemptRows || []).filter((o: any) => {
+        const attempts: any[] = Array.isArray(o.supplier_attempts) ? o.supplier_attempts : []
+        const last = attempts[attempts.length - 1]
+        return last?.supplier === 'kuntanii' && (last.outcome === 'success' || last.outcome === 'already_submitted')
+    })
+
     // One entry per real order: a storefront order is a shop_orders row AND an orders row.
     type Item = { orderId: string | null; shopOrderId: string | null; keys: string[]; createdAt: string }
     const items = new Map<string, Item>()
-    for (const o of mainRows || []) {
+    for (const o of [...(mainRows || []), ...unstampedRows]) {
         const key = String(o.shop_order_id || o.id)
         items.set(key, {
             orderId: o.id, shopOrderId: o.shop_order_id || null, createdAt: o.created_at,

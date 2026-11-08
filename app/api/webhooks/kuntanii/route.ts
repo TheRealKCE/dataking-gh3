@@ -29,8 +29,9 @@ async function findOrder(supabase: any, externalOrderId: string | null) {
 
     if (externalOrderId) {
         const { data, error } = await supabase.from('orders').select(select).eq('kuntanii_reference', externalOrderId).limit(2)
-        if (error) throw new Error(`reference lookup failed: ${error.message}`)
-        if (data?.length === 1) return data[0]
+        // Column missing (migration 20261108000000 not run): fall through to the uuid lookup.
+        if (error && !/kuntanii_reference/i.test(error.message || '')) throw new Error(`reference lookup failed: ${error.message}`)
+        if (!error && data?.length === 1) return data[0]
         if (data?.length > 1) {
             console.error(`[KuntaniiWebhook] ${data.length} orders share reference ${externalOrderId} — refusing to guess`)
             return null

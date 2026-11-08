@@ -801,6 +801,9 @@ export default function FulfillmentPage() {
                 toast.error('Sync failed: ' + (result.error || 'Unknown error'))
             } else {
                 toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed${result.notFound ? `, ${result.notFound} not found` : ''}`)
+                if (Array.isArray(result.errors) && result.errors.length > 0) {
+                    toast.error(`Kuntanii sync: ${result.errors[0]}`, { duration: 10000 })
+                }
                 await fetchOrders(true)
             }
         } catch (err: any) {
