@@ -31,6 +31,8 @@ interface AnnouncementModalProps {
     onRefresh?: () => void | Promise<void>
 }
 
+const DISMISS_DELAY_SECONDS = 5
+
 export function AnnouncementModal({
     open,
     onOpenChange,
@@ -47,7 +49,24 @@ export function AnnouncementModal({
     const Icon = TONE_ICONS[tone] ?? Megaphone
     const [refreshing, setRefreshing] = React.useState(false)
 
+    // Force a short read before the notice can be dismissed. Restarts every time the
+    // sheet opens; while it runs, Esc and the backdrop are ignored too.
+    const [secondsLeft, setSecondsLeft] = React.useState(DISMISS_DELAY_SECONDS)
+    React.useEffect(() => {
+        if (!open) return
+        setSecondsLeft(DISMISS_DELAY_SECONDS)
+        const id = window.setInterval(() => {
+            setSecondsLeft((s) => {
+                if (s <= 1) { window.clearInterval(id); return 0 }
+                return s - 1
+            })
+        }, 1000)
+        return () => window.clearInterval(id)
+    }, [open])
+    const locked = secondsLeft > 0
+
     const close = () => {
+        if (locked) return
         onDismiss?.()
         onOpenChange(false)
     }
@@ -146,13 +165,22 @@ export function AnnouncementModal({
                         <button
                             type="button"
                             onClick={close}
+                            disabled={locked}
+                            aria-disabled={locked}
                             className={cn(
                                 'group flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black tracking-wide transition-all active:scale-[0.98]',
+                                'disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
                                 t.cta,
                             )}
                         >
-                            {dismissLabel}
-                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                            {locked ? (
+                                <>{dismissLabel} ({secondsLeft}s)</>
+                            ) : (
+                                <>
+                                    {dismissLabel}
+                                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                                </>
+                            )}
                         </button>
 
                         {communityLink && (
