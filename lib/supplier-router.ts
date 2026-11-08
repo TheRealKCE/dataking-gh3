@@ -41,7 +41,7 @@ export interface SupplierResult {
 }
 
 type FulfillFn = (
-    network: string, phone: string, size: string, orderId: string, opts?: { isRetry?: boolean; mtnRoute?: string }
+    network: string, phone: string, size: string, orderId: string, opts?: { isRetry?: boolean; mtnRoute?: string; deliveryMode?: string }
 ) => Promise<SupplierResult>
 
 export interface SupplierDef {
@@ -75,6 +75,7 @@ export const SUPPLIERS: ReadonlyArray<SupplierDef> = [
     def('netpulse',     'netpulse_reference',     'netpulse_reference',     () => import('@/lib/netpulse-service') as any),
     def('hendylinks',   'hendylinks_reference',   'hendylinks_reference',   () => import('@/lib/hendylinks-service') as any),
     def('bundleportal', 'bundleportal_reference', 'bundleportal_reference', () => import('@/lib/bundleportal-service') as any),
+    def('kuntanii',     'kuntanii_reference',     'kuntanii_reference',     () => import('@/lib/kuntanii-service') as any),
 ]
 
 const BY_ID = new Map(SUPPLIERS.map(s => [s.id, s]))
@@ -248,6 +249,17 @@ async function callSupplier(s: SupplierDef, p: FulfillParams, config: Fulfillmen
             return await fulfillOrder(p.network, p.phone, p.size, key, {
                 isRetry: p.mode === 'retry',
                 mtnRoute: config.settings?.bundleportal_mtn_route,
+            })
+        }
+        if (s.id === 'kuntanii') {
+            // externalOrderId doubles as Kuntanii's idempotency key. A retry starts from
+            // the storefront id the first attempt used and probes its -rN successors, so
+            // a live order is adopted and a cancelled one replaced, never duplicated.
+            const key = p.mode === 'retry' ? (p.shopOrderId || p.orderId) : p.orderId
+            return await fulfillOrder(p.network, p.phone, p.size, key, {
+                isRetry: p.mode === 'retry',
+                // 'normal' | 'instant' — the service treats anything else as normal.
+                deliveryMode: config.settings?.kuntanii_delivery_mode,
             })
         }
         return await fulfillOrder(p.network, p.phone, p.size, p.orderId)

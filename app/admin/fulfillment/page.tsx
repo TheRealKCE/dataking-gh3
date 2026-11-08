@@ -32,7 +32,7 @@ import {
 import { toast } from 'sonner'
 import { ADMIN_VERIFYING_LABEL, getOrderDisplayStatus } from '@/lib/order-status-display'
 import { formatCurrency, cn } from '@/lib/utils'
-import { SUPPLIER_NAMES, isSupplierId } from '@/lib/supplier-ids'
+import { SUPPLIER_NAMES, isSupplierId, supplierSellsNetwork } from '@/lib/supplier-ids'
 import { format } from 'date-fns'
 import {
     LEGACY_MTN_GATE_KEY,
@@ -75,6 +75,10 @@ interface FulfillmentSettings {
     netpulse_networks: Record<string, boolean>
     hendylinks_networks: Record<string, boolean>
     bundleportal_networks: Record<string, boolean>
+    /** Kuntanii sells MTN only; the other keys stay false. */
+    kuntanii_networks: Record<string, boolean>
+    /** Kuntanii queue: 'normal' or 'instant' (needs Kuntanii to enable instant + prices). */
+    kuntanii_delivery_mode: 'normal' | 'instant'
     /** network → supplier tried when the primary definitely refuses (lib/supplier-router). */
     fallback: Record<string, SupplierId | null>
     /** BundlePortal's MTN route (lib/bundleportal-service MTN_ROUTES). Sizes it doesn't sell retry on plain mtn. */
@@ -104,6 +108,7 @@ const SUPPLIER_KEYS = {
     netpulse: 'netpulse_networks',
     hendylinks: 'hendylinks_networks',
     bundleportal: 'bundleportal_networks',
+    kuntanii: 'kuntanii_networks',
 } as const
 
 type SupplierId = keyof typeof SUPPLIER_KEYS
@@ -175,6 +180,8 @@ export default function FulfillmentPage() {
         netpulse_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         hendylinks_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         bundleportal_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        kuntanii_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        kuntanii_delivery_mode: 'normal',
         fallback: {},
         bundleportal_mtn_route: 'mtn'
     })
@@ -220,6 +227,8 @@ export default function FulfillmentPage() {
     const [hendylinksSyncCooldown, setHendylinksSyncCooldown] = useState(false)
 
     // Sync BundlePortal Status state
+    const [isSyncingKuntanii, setIsSyncingKuntanii] = useState(false)
+    const [kuntaniiSyncCooldown, setKuntaniiSyncCooldown] = useState(false)
     const [isSyncingBundlePortal, setIsSyncingBundlePortal] = useState(false)
     const [bundleportalSyncCooldown, setBundleportalSyncCooldown] = useState(false)
 
@@ -350,6 +359,7 @@ export default function FulfillmentPage() {
             const dbNetpulseNetworks: Record<string, boolean> = dbFulfillmentSettings.netpulse_networks || {}
             const dbHendylinksNetworks: Record<string, boolean> = dbFulfillmentSettings.hendylinks_networks || {}
             const dbBundleportalNetworks: Record<string, boolean> = dbFulfillmentSettings.bundleportal_networks || {}
+            const dbKuntaniiNetworks: Record<string, boolean> = dbFulfillmentSettings.kuntanii_networks || {}
 
             setSettings({
                 is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
@@ -385,6 +395,11 @@ export default function FulfillmentPage() {
                     ...acc,
                     [n]: dbBundleportalNetworks[n] === true
                 }), {} as Record<string, boolean>),
+                kuntanii_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbKuntaniiNetworks[n] === true && supplierSellsNetwork('kuntanii', n)
+                }), {} as Record<string, boolean>),
+                kuntanii_delivery_mode: dbFulfillmentSettings.kuntanii_delivery_mode === 'instant' ? 'instant' : 'normal',
                 fallback: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: isSupplierId(dbFulfillmentSettings.fallback?.[n]) ? dbFulfillmentSettings.fallback[n] : null
@@ -460,7 +475,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks, netpulse_networks: newSettings.netpulse_networks, hendylinks_networks: newSettings.hendylinks_networks, bundleportal_networks: newSettings.bundleportal_networks, fallback: newSettings.fallback, bundleportal_mtn_route: newSettings.bundleportal_mtn_route }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks, netpulse_networks: newSettings.netpulse_networks, hendylinks_networks: newSettings.hendylinks_networks, bundleportal_networks: newSettings.bundleportal_networks, kuntanii_networks: newSettings.kuntanii_networks, kuntanii_delivery_mode: newSettings.kuntanii_delivery_mode, fallback: newSettings.fallback, bundleportal_mtn_route: newSettings.bundleportal_mtn_route }) }
             ]
 
             const { error } = await (supabase
@@ -773,6 +788,27 @@ export default function FulfillmentPage() {
             setIsSyncingHendyLinks(false)
             setHendylinksSyncCooldown(true)
             setTimeout(() => setHendylinksSyncCooldown(false), 30000)
+        }
+    }
+
+    const handleSyncKuntanii = async () => {
+        if (isSyncingKuntanii || kuntaniiSyncCooldown) return
+        setIsSyncingKuntanii(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-kuntanii', { method: 'POST' })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed${result.notFound ? `, ${result.notFound} not found` : ''}`)
+                await fetchOrders(true)
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncingKuntanii(false)
+            setKuntaniiSyncCooldown(true)
+            setTimeout(() => setKuntaniiSyncCooldown(false), 30000)
         }
     }
 
@@ -1396,6 +1432,34 @@ export default function FulfillmentPage() {
                         </Button>
                     </CardContent>
                 </Card>
+
+                <Card className="bg-gradient-to-br from-amber-600 to-orange-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Kuntanii Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Checks each processing Kuntanii order by its reference</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncKuntanii}
+                            disabled={isSyncingKuntanii || kuntaniiSyncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncingKuntanii
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : kuntaniiSyncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync Kuntanii Status</>
+                            }
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Fallback supplier — where an order goes when the primary refuses it */}
@@ -1434,7 +1498,7 @@ export default function FulfillmentPage() {
                                     <SelectContent>
                                         <SelectItem value="none">No fallback</SelectItem>
                                         {(Object.keys(SUPPLIER_KEYS) as SupplierId[])
-                                            .filter(id => id !== primary)
+                                            .filter(id => id !== primary && supplierSellsNetwork(id, net))
                                             .map(id => (
                                                 <SelectItem key={id} value={id}>{SUPPLIER_NAMES[id]}</SelectItem>
                                             ))}
@@ -1784,6 +1848,75 @@ export default function FulfillmentPage() {
                                 </CardContent>
                             </Card>
                         ))}
+                    </div>
+                </div>
+
+                {/* Kuntanii Row — MTN only */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">Kuntanii Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(MTN only · numbers not on Kuntanii&apos;s approved list go to the fallback)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => {
+                            const sells = supplierSellsNetwork('kuntanii', net)
+                            const on = settings.kuntanii_networks[net] === true
+                            return (
+                                <Card key={`kuntanii-${net}`} className={`border-l-4 transition-colors ${on ? 'border-l-amber-500' : 'border-l-gray-300 dark:border-l-gray-600'} ${sells ? '' : 'opacity-60'}`}>
+                                    <CardContent className="p-3 md:p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Activity className={`w-3.5 h-3.5 ${on ? 'text-amber-500' : 'text-gray-400'}`} />
+                                                <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                            </div>
+                                            {sells ? (
+                                                <Button
+                                                    id={`kt-toggle-${net}`}
+                                                    variant={on ? 'outline' : 'default'}
+                                                    size="sm"
+                                                    className={`h-6 text-[10px] md:text-xs px-2 ${on ? 'border-amber-500 text-amber-600' : ''}`}
+                                                    onClick={() => toggleNetwork(net, 'kuntanii')}
+                                                    disabled={isSavingSettings}
+                                                >
+                                                    {on ? 'Disconnect' : 'Connect'}
+                                                </Button>
+                                            ) : (
+                                                <span className="text-[10px] text-muted-foreground">MTN only</span>
+                                            )}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                                            <span className="font-bold text-amber-600 dark:text-amber-400">Kuntanii</span>
+                                            {on && <span className="text-amber-500 font-semibold">· Active · {settings.kuntanii_delivery_mode === 'instant' ? 'Instant' : 'Normal'}</span>}
+                                        </div>
+                                        {net === 'MTN' && (
+                                            <div className="mt-2">
+                                                <div className="flex rounded-md border overflow-hidden">
+                                                    {(['normal', 'instant'] as const).map(mode => (
+                                                        <button
+                                                            key={mode}
+                                                            id={`kt-mode-${mode}`}
+                                                            type="button"
+                                                            className={`flex-1 h-6 text-[10px] md:text-xs font-semibold transition-colors disabled:opacity-50 ${settings.kuntanii_delivery_mode === mode ? 'bg-amber-500 text-white' : 'hover:bg-muted'}`}
+                                                            onClick={() => {
+                                                                if (settings.kuntanii_delivery_mode !== mode) saveSettings({ ...settings, kuntanii_delivery_mode: mode })
+                                                            }}
+                                                            disabled={isSavingSettings}
+                                                        >
+                                                            {mode === 'normal' ? 'Normal' : 'Instant'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground mt-1">
+                                                    Instant only works once Kuntanii enables it and sets instant prices. If they refuse it, the order goes to the fallback. It is never resent as Normal.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
                     </div>
                 </div>
             </div>

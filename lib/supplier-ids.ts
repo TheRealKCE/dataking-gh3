@@ -8,6 +8,7 @@
 export const SUPPLIER_IDS = [
     'datakazina', 'codecraft', 'kingflexy', 'eazydata',
     'agentportal', 'netpulse', 'hendylinks', 'bundleportal',
+    'kuntanii',
 ] as const
 
 export type SupplierId = typeof SUPPLIER_IDS[number]
@@ -22,6 +23,7 @@ export const SUPPLIER_FLAGS: Record<SupplierId, string> = {
     netpulse: 'netpulse_networks',
     hendylinks: 'hendylinks_networks',
     bundleportal: 'bundleportal_networks',
+    kuntanii: 'kuntanii_networks',
 }
 
 export const SUPPLIER_NAMES: Record<SupplierId, string> = {
@@ -33,6 +35,17 @@ export const SUPPLIER_NAMES: Record<SupplierId, string> = {
     netpulse: 'NetPulse',
     hendylinks: 'HendyLinks',
     bundleportal: 'BundlePortal',
+    kuntanii: 'Kuntanii',
+}
+
+/** Suppliers that only sell some networks; anything missing here sells all four. */
+export const SUPPLIER_ONLY_NETWORKS: Partial<Record<SupplierId, readonly string[]>> = {
+    kuntanii: ['MTN'],
+}
+
+export function supplierSellsNetwork(id: SupplierId, network: string): boolean {
+    const only = SUPPLIER_ONLY_NETWORKS[id]
+    return !only || only.includes(network)
 }
 
 export function isSupplierId(value: unknown): value is SupplierId {
