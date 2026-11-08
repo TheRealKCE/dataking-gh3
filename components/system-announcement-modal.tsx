@@ -5,6 +5,14 @@ import { usePathname } from 'next/navigation'
 import { AnnouncementModal } from '@/components/announcements/announcement-modal'
 import { SystemAnnouncement } from '@/types/supabase'
 
+// id + a short hash of what the user actually reads.
+function seenKeyFor(a: Partial<SystemAnnouncement>): string {
+    const text = `${a.title ?? ''}\u0000${a.message ?? ''}`
+    let h = 5381
+    for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0
+    return `announcement_seen_${a.id}_${(h >>> 0).toString(36)}`
+}
+
 export function SystemAnnouncementModal({ initialAnnouncement = null }: { initialAnnouncement?: Partial<SystemAnnouncement> | null }) {
     const [announcement, setAnnouncement] = useState<Partial<SystemAnnouncement> | null>(null)
     const [isOpen, setIsOpen] = useState(false)
@@ -41,9 +49,11 @@ export function SystemAnnouncementModal({ initialAnnouncement = null }: { initia
 
             if (!announcementData?.id) return
 
-            // Check if this specific announcement has already been seen in this session
-            const seenKey = `announcement_seen_${announcementData.id}`
-            const hasSeen = sessionStorage.getItem(seenKey)
+            // Check if this exact version has already been seen in this session.
+            // "Save & Repost" edits the row in place (same id), so the key must change
+            // with the content or a reposted notice stays hidden from anyone who
+            // dismissed the old text.
+            const hasSeen = sessionStorage.getItem(seenKeyFor(announcementData))
 
             if (!hasSeen) {
                 setAnnouncement(announcementData)
@@ -56,7 +66,7 @@ export function SystemAnnouncementModal({ initialAnnouncement = null }: { initia
 
     const handleDismiss = () => {
         if (announcement?.id) {
-            sessionStorage.setItem(`announcement_seen_${announcement.id}`, 'true')
+            sessionStorage.setItem(seenKeyFor(announcement), 'true')
             setIsOpen(false)
         }
     }

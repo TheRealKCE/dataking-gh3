@@ -457,7 +457,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     useEffect(() => {
         if (!announcement) return
 
-        const seenKey = `announcement_seen_${shop.id}`
+        // Keyed on the content too: a per-shop key alone hid every later notice
+        // (or an edited one) for the rest of the visitor's session.
+        const text = `${announcement.type}\u0000${announcement.title ?? ''}\u0000${announcement.message}`
+        let h = 5381
+        for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0
+        const seenKey = `announcement_seen_${shop.id}_${(h >>> 0).toString(36)}`
         if (!sessionStorage.getItem(seenKey)) {
             setShowAnnouncementModal(true)
             setAnnouncementDismissed(true)
