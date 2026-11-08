@@ -4,6 +4,7 @@ import { Redis } from '@upstash/redis'
 import { createServerClient } from '@/lib/supabase'
 import { verifyMtnWhitelist } from '@/lib/agentportal-service'
 import { verifyMtnNumbers } from '@/lib/bundleportal-service'
+import { verifyKuntaniiNumbers } from '@/lib/kuntanii-service'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { recordRegistrationResults } from '@/lib/mtn-registration-gate'
 
@@ -15,7 +16,7 @@ export const maxDuration = 30
  * The storefront twin of /api/mtn/check-registration, cut down to ONE number: a guest
  * checks the number they are about to buy for, not a list. Same two servers:
  * Server 1 = Agent Portal (an unregistered number is auto-submitted to MTN),
- * Server 2 = BundlePortal (check only).
+ * Server 2 = BundlePortal (check only), Server 3 = Kuntanii (check only).
  *
  * Unauthenticated, and every call is a paid upstream request, so it is rate limited
  * by IP and only answers for a live shop.
@@ -61,7 +62,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'shopSlug is required' }, { status: 400 })
         }
 
-        const server = Number(body.server) === 2 ? 2 : 1
+        const requested = Number(body.server)
+        const server = requested === 3 ? 3 : requested === 2 ? 2 : 1
 
         const validation = validateGhanaianPhone(String(body.number ?? '').trim())
         if (!validation.isValid) {
@@ -84,11 +86,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
         }
 
-        if (!(server === 2 ? process.env.BUNDLEPORTAL_API_KEY : process.env.AGENTPORTAL_API_KEY)) {
+        if (!(server === 3 ? process.env.KUNTANII_API_KEY : server === 2 ? process.env.BUNDLEPORTAL_API_KEY : process.env.AGENTPORTAL_API_KEY)) {
             return NextResponse.json(
                 { error: `Server ${server} is unavailable right now. Please try the other server.` },
                 { status: 503 }
             )
+        }
+
+        if (server === 3) {
+            const { success, allowed, failed, error } = await verifyKuntaniiNumbers([number])
+            if (!success || failed.has(number)) {
+                return NextResponse.json(
+                    { error: error || 'Could not check on Server 3 right now. Please try Server 1.' },
+                    { status: 502 }
+                )
+            }
+            return NextResponse.json({ server, number, registered: allowed.has(number) })
         }
 
         if (server === 2) {

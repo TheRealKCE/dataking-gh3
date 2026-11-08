@@ -430,6 +430,41 @@ export async function verifyBeneficiaries(phoneNumbers: string[]) {
     }
 }
 
+/**
+ * "Server 3" number check: which numbers Kuntanii will deliver to. Check only —
+ * nothing is submitted to MTN. Reply: { results: [{ phoneNumber, normalizedPhone,
+ * eligible, reason, message }] }. Chunked; numbers in a chunk that errors land in
+ * `failed`.
+ */
+export async function verifyKuntaniiNumbers(phoneNumbers: string[]): Promise<{
+    success: boolean; allowed: Set<string>; failed: Set<string>; reasons: Map<string, string>; error?: string
+}> {
+    const allowed = new Set<string>(), failed = new Set<string>(), reasons = new Map<string, string>()
+    const CHUNK = 100
+    let anyOk = false, lastError: string | undefined
+    for (let i = 0; i < phoneNumbers.length; i += CHUNK) {
+        const chunk = phoneNumbers.slice(i, i + CHUNK)
+        const res = await verifyBeneficiaries(chunk)
+        if (!res.success) {
+            lastError = res.error
+            chunk.forEach(n => failed.add(n))
+            continue
+        }
+        anyOk = true
+        const byLocal = new Map<string, any>()
+        for (const r of res.data?.results || []) {
+            byLocal.set(normalizePhone(String(r?.normalizedPhone || r?.phoneNumber || '')), r)
+        }
+        for (const n of chunk) {
+            const r = byLocal.get(normalizePhone(n))
+            if (!r) { failed.add(n); continue }
+            if (r.eligible === true) allowed.add(n)
+            else if (r.message || r.reason) reasons.set(n, String(r.message || r.reason))
+        }
+    }
+    return { success: anyOk, allowed, failed, reasons, error: anyOk ? undefined : lastError }
+}
+
 /** Kuntanii documents no balance endpoint. */
 export async function fetchSupplierBalance(): Promise<{ success: boolean; balance?: number; currency?: string; error?: string; unsupported?: boolean }> {
     return { success: false, unsupported: true, error: 'Kuntanii has no balance endpoint' }

@@ -21,11 +21,12 @@ import {
     Info,
 } from 'lucide-react'
 
-type Server = 1 | 2
+type Server = 1 | 2 | 3
 
 // Server 1 = Agent Portal (auto-submits unregistered numbers to MTN).
 // Server 2 = BundlePortal (check only, one upstream call per number, so a lower cap).
-const MAX_NUMBERS: Record<Server, number> = { 1: 1000, 2: 200 }
+// Server 3 = Kuntanii (check only, beneficiary list).
+const MAX_NUMBERS: Record<Server, number> = { 1: 1000, 2: 200, 3: 500 }
 
 type CheckStatus = 'registered' | 'submitted' | 'invalid' | 'not_mtn'
 
@@ -238,7 +239,7 @@ export default function MtnRegistrationPage() {
                         </p>
                     ) : (
                         <p className="text-base text-amber-900 dark:text-amber-200 text-left leading-relaxed">
-                            Server 2 <strong>only checks</strong> — a number that is not registered there is{' '}
+                            Server {server} <strong>only checks</strong> — a number that is not registered there is{' '}
                             <strong>not</strong> sent to MTN. Use Server 1 to submit it. You can check up to{' '}
                             <strong>{maxNumbers.toLocaleString()}</strong> numbers at once.
                         </p>
@@ -246,8 +247,8 @@ export default function MtnRegistrationPage() {
                 </div>
 
                 {/* Server */}
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-muted">
-                    {([1, 2] as Server[]).map((s) => (
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-muted">
+                    {([1, 2, 3] as Server[]).map((s) => (
                         <button
                             key={s}
                             type="button"

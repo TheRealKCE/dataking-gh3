@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { ShieldCheck, ChevronDown, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type Server = 1 | 2
+type Server = 1 | 2 | 3
 
 type Result = { server: Server; number: string; registered: boolean }
 
@@ -68,8 +68,8 @@ export default function StorefrontMtnCheck({ shopSlug, className }: { shopSlug: 
 
             {open && (
                 <div className="px-4 pb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800/50">
-                        {([1, 2] as Server[]).map(s => (
+                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800/50">
+                        {([1, 2, 3] as Server[]).map(s => (
                             <button
                                 key={s}
                                 type="button"
@@ -120,7 +120,7 @@ export default function StorefrontMtnCheck({ shopSlug, className }: { shopSlug: 
                                     <strong>{result.number}</strong> is not registered for data yet.{' '}
                                     {result.server === 1
                                         ? 'We have sent it to MTN for registration — this can take up to 2 weeks. Please don\'t buy data for it until then.'
-                                        : 'Server 2 only checks. Try Server 1 to send it to MTN for registration.'}
+                                        : `Server ${result.server} only checks. Try Server 1 to send it to MTN for registration.`}
                                 </span>
                             </div>
                         )

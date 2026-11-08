@@ -1204,7 +1204,7 @@ export default function DataPackagesPage() {
                     <div className="flex-1 min-w-0">
                         <h2 className="text-lg sm:text-xl font-bold leading-tight">Check MTN Number Registration</h2>
                         <p className="text-sm sm:text-base text-muted-foreground mt-0.5">
-                            Check on Server 1 or Server 2 · Server 1 sends unregistered numbers to MTN
+                            Check on Server 1, 2 or 3 · Server 1 sends unregistered numbers to MTN
                         </p>
                     </div>
                     <ExternalLink className="w-6 h-6 text-muted-foreground shrink-0" />

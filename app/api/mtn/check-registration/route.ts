@@ -3,6 +3,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { createServerClient } from '@/lib/supabase'
 import { verifyMtnWhitelist } from '@/lib/agentportal-service'
 import { verifyMtnNumbers } from '@/lib/bundleportal-service'
+import { verifyKuntaniiNumbers } from '@/lib/kuntanii-service'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { recordRegistrationResults } from '@/lib/mtn-registration-gate'
 
@@ -11,8 +12,10 @@ export const maxDuration = 60
 const MAX_NUMBERS = 1000
 // Server 2 (BundlePortal) is one upstream call per number, so it takes fewer.
 const MAX_NUMBERS_SERVER_2 = 200
+// Server 3 (Kuntanii) verifies in batches of 100.
+const MAX_NUMBERS_SERVER_3 = 500
 
-type Server = 1 | 2
+type Server = 1 | 2 | 3
 
 type CheckStatus = 'registered' | 'submitted' | 'invalid' | 'not_mtn'
 
@@ -29,6 +32,7 @@ interface CheckResult {
  * Server 1 = Agent Portal: numbers that are not yet enabled are auto-submitted to MTN
  * by the same upstream call and are usually ready within 2 weeks.
  * Server 2 = BundlePortal: check only - an unregistered number is NOT submitted.
+ * Server 3 = Kuntanii: check only - is the number on Kuntanii's beneficiary list.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -46,10 +50,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
         }
 
-        const server: Server = Number(body?.server) === 2 ? 2 : 1
-        const maxNumbers = server === 2 ? MAX_NUMBERS_SERVER_2 : MAX_NUMBERS
+        const requested = Number(body?.server)
+        const server: Server = requested === 3 ? 3 : requested === 2 ? 2 : 1
+        const maxNumbers = server === 3 ? MAX_NUMBERS_SERVER_3 : server === 2 ? MAX_NUMBERS_SERVER_2 : MAX_NUMBERS
+        const serverKey = server === 3 ? process.env.KUNTANII_API_KEY : server === 2 ? process.env.BUNDLEPORTAL_API_KEY : process.env.AGENTPORTAL_API_KEY
 
-        if (!(server === 2 ? process.env.BUNDLEPORTAL_API_KEY : process.env.AGENTPORTAL_API_KEY)) {
+        if (!serverKey) {
             return NextResponse.json(
                 { error: `Server ${server} is temporarily unavailable. Please try the other server.` },
                 { status: 503 }
@@ -115,6 +121,36 @@ export async function POST(request: NextRequest) {
         }
 
         if (uniqueMtn.size === 0) {
+            return NextResponse.json({
+                server,
+                results,
+                summary: buildSummary(results, duplicates),
+            })
+        }
+
+        if (server === 3) {
+            const { success, allowed, failed, reasons, error } = await verifyKuntaniiNumbers(Array.from(uniqueMtn))
+
+            if (!success) {
+                return NextResponse.json(
+                    { error: error || 'Could not reach Server 3 right now. Please try Server 1.' },
+                    { status: 502 }
+                )
+            }
+
+            for (const result of results) {
+                if (result.status !== 'submitted') continue
+                if (failed.has(result.normalized)) {
+                    result.status = 'invalid'
+                    result.reason = 'Could not check - try again'
+                } else if (allowed.has(result.normalized)) {
+                    result.status = 'registered'
+                } else {
+                    result.reason = reasons.get(result.normalized) || 'Not registered on Server 3'
+                }
+            }
+
+            // No cache write, same as Server 2: the purchase gate reads Agent Portal.
             return NextResponse.json({
                 server,
                 results,
