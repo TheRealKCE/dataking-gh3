@@ -559,7 +559,8 @@ export async function POST(request: NextRequest) {
             console.log('[ShopInit] OTP verified successfully. Sending follow-up payment request.')
             moolreResponse = await initiatePayment({
                 amount: totalAmount / 100,
-                payerPhone: cleanPhone,
+                // The wallet that just passed OTP — not the beneficiary's number.
+                payerPhone: payerClean,
                 channel: channelId,
                 externalRef: shopRef,
             })

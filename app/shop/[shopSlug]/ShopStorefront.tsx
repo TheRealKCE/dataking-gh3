@@ -16,7 +16,7 @@ import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
     History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store, BadgeCheck
-, Receipt } from 'lucide-react'
+, Receipt, Wallet } from 'lucide-react'
 import {
     ID_TYPES, REGIONS, AFA_REQUIRED_FIELDS, MIN_AFA_AGE,
     validateId, maskIdNumber, ageFromDob, maxDobInputValue,
@@ -222,6 +222,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [airtimePhone, setAirtimePhone] = useState('')
     const [airtimeEmail, setAirtimeEmail] = useState('')
     const [airtimeAmount, setAirtimeAmount] = useState('')
+    // Airtime goes to `airtimePhone`; the MoMo prompt goes to `airtimePayPhone`, so a
+    // buyer can top up someone else and pay from their own wallet.
+    const [airtimePayPhone, setAirtimePayPhone] = useState('')
+    const [airtimePayNetwork, setAirtimePayNetwork] = useState<PayNetwork | null>(null)
+    const [airtimePayNetworkManual, setAirtimePayNetworkManual] = useState(false)
     const [detectedNetwork, setDetectedNetwork] = useState<'MTN' | 'Telecel' | 'AT' | null>(null)
     const [isManualSelection, setIsManualSelection] = useState(false)
     const [useExact, setUseExact] = useState(false)
@@ -694,6 +699,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         setPayNetwork(detectPayNetwork(effectivePayPhone))
     }, [effectivePayPhone, payNetworkManual])
 
+    const effectiveAirtimePayPhone = airtimePayPhone.replace(/\s+/g, '')
+    useEffect(() => {
+        if (airtimePayNetworkManual) return
+        setAirtimePayNetwork(detectPayNetwork(effectiveAirtimePayPhone))
+    }, [effectiveAirtimePayPhone, airtimePayNetworkManual])
+
     const closeDataCheckout = () => {
         setSelectedPackage(null)
         setErrorMsg(null)
@@ -835,7 +846,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         if (numAmount > maxAmount) { toast.error(`Maximum airtime purchase is GHS ${maxAmount.toFixed(2)}`); return }
 
         const cleanPhone = airtimePhone.replace(/\s+/g, '')
-        
+
+        // Same rule as data: only prompt-based gateways need the payer's wallet here;
+        // on Paystack the buyer enters it on Paystack's own page.
+        if (needsMomoDetails) {
+            if (!effectiveAirtimePayPhone) { toast.error('Enter the Mobile Money number to charge'); return }
+            if (!/^(0\d{9}|233\d{9})$/.test(effectiveAirtimePayPhone)) {
+                toast.error('Invalid Mobile Money number. Use format: 0XXXXXXXXX')
+                return
+            }
+            if (!airtimePayNetwork) { toast.error('Select the Mobile Money network to pay from'); return }
+        }
+
         setLoading(true)
         try {
             const res = await fetch('/api/shop/initialize', {
@@ -848,6 +870,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     amount: numAmount,
                     useExactAmount: useExact,
                     guestPhone: cleanPhone,
+                    ...(needsMomoDetails ? { payerPhone: effectiveAirtimePayPhone, payerNetwork: airtimePayNetwork } : {}),
                     guestEmail: airtimeEmail.trim() || undefined,
                     provider: webPaymentProvider,
                 }),
@@ -1133,6 +1156,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 isMashup: otpOrderType === 'mashup',
                 bundlePreference: otpOrderType === 'mashup' ? bundlePreference : undefined,
                 guestPhone: (otpOrderType === 'mashup' ? mashupPhone : airtimePhone).replace(/\s+/g, ''),
+                ...(otpOrderType === 'airtime' && needsMomoDetails ? { payerPhone: effectiveAirtimePayPhone, payerNetwork: airtimePayNetwork } : {}),
                 guestEmail: (otpOrderType === 'mashup' ? mashupEmail : airtimeEmail).trim() || undefined,
                 otpCode: otpCode.trim(),
                 reference: otpReference,
@@ -1722,6 +1746,44 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Payer — typed on its own; any wallet on any network may pay.
+                                        Paystack collects this on its own page, so hide it there. */}
+                                    {needsMomoDetails && (
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Mobile Money number (to pay)</p>
+                                            <div className="relative">
+                                                <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                                <input
+                                                    type="tel" inputMode="numeric" value={airtimePayPhone} onChange={(e) => setAirtimePayPhone(e.target.value)}
+                                                    placeholder="MoMo number to charge (e.g. 024XXXXXXX)"
+                                                    className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {([
+                                                    { id: 'MTN', label: 'MTN', dot: 'bg-[#FFCC00]' },
+                                                    { id: 'Telecel', label: 'Telecel', dot: 'bg-[#da291c]' },
+                                                    { id: 'AT', label: 'AirtelTigo', dot: 'bg-[#2463eb]' },
+                                                ] as { id: PayNetwork; label: string; dot: string }[]).map(({ id, label, dot }) => (
+                                                    <button
+                                                        key={id}
+                                                        type="button"
+                                                        onClick={() => { setAirtimePayNetwork(id); setAirtimePayNetworkManual(true) }}
+                                                        className={cn(
+                                                            'flex items-center justify-center gap-2 py-3 rounded-xl border text-xs font-bold transition-all',
+                                                            airtimePayNetwork === id
+                                                                ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
+                                                        )}
+                                                    >
+                                                        <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="relative">
                                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
