@@ -40,7 +40,7 @@ function verifySignature(rawBody: string, header: string | null, secret: string)
  * Each lookup refuses an ambiguous hit rather than guessing.
  */
 async function findOrder(supabase: any, reference: string | null, orderId: string | null) {
-    const select = 'id, status, shop_order_id'
+    const select = 'id, status, shop_order_id, fulfillment_method'
 
     if (reference) {
         const { data, error } = await supabase.from('orders').select(select).eq('bundleportal_reference', reference).limit(2)
@@ -99,7 +99,10 @@ export async function POST(request: NextRequest) {
         // settles what the docs don't.
         console.log(`[BundlePortalWebhook] event=${payload?.event} status=${payload?.status} keys=[${Object.keys(payload || {}).join(',')}]`)
 
-        const rawStatus = payload?.status ?? String(payload?.event || '').replace(/^order\./, '')
+        // A refund event wins over a `status` that may still read "completed".
+        const eventName = String(payload?.event || '').replace(/^order\./, '')
+        const isRefund = /refund|revers/i.test(eventName) || /refund|revers/i.test(String(payload?.status ?? ''))
+        const rawStatus = isRefund ? 'refunded' : (payload?.status ?? eventName)
         const orderId = payload?.order_id === undefined || payload?.order_id === null ? null : String(payload.order_id)
         const reference = payload?.reference === undefined || payload?.reference === null ? null : String(payload.reference)
 
@@ -117,6 +120,33 @@ export async function POST(request: NextRequest) {
         if (!order) {
             console.warn(`[BundlePortalWebhook] No order found for order_id ${orderId} / reference ${reference}`)
             return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
+        }
+
+        // BundlePortal refunded an order we had already marked completed: fail it.
+        // Only while it is still ours at BundlePortal — a refilled order now
+        // belongs to another supplier.
+        if (isRefund && order.status === 'completed' && order.fulfillment_method === 'bundleportal') {
+            const now = new Date().toISOString()
+            const { data: flipped, error: flipErr } = await (supabase.from('orders') as any)
+                .update({ status: 'failed', supplier_status: null, updated_at: now })
+                .eq('id', order.id)
+                .eq('status', 'completed')
+                .select('id')
+            if (flipErr || !flipped?.length) {
+                if (flipErr) console.error(`[BundlePortalWebhook] refund flip failed for ${order.id}: ${flipErr.message}`)
+                return NextResponse.json({ success: true, updated: 0 }, { status: 200 })
+            }
+            if (order.shop_order_id) {
+                await (supabase.from('shop_orders') as any)
+                    .update({ status: 'failed', updated_at: now })
+                    .eq('id', order.shop_order_id)
+                    .eq('status', 'completed')
+            }
+            await syncShopOrderStatus(order.id, 'failed').catch(err =>
+                console.error(`[BundlePortalWebhook] syncShopOrderStatus failed for ${order.id}:`, err)
+            )
+            console.log(`[BundlePortalWebhook] order ${order.id}: completed → failed (BundlePortal REFUNDED it — manual refund required)`)
+            return NextResponse.json({ success: true, updated: 1 }, { status: 200 })
         }
 
         // Only advance orders currently in processing (idempotent — skip already-terminal).

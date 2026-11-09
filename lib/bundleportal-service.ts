@@ -475,7 +475,15 @@ export async function fetchRecentOrderStatuses(opts: {
                 if (Number.isFinite(createdMs) && createdMs < oldestSeenMs) oldestSeenMs = createdMs
 
                 const id = row?.order_id === undefined || row?.order_id === null ? null : String(row.order_id)
-                if (!id || !wanted.has(id) || statuses.has(id)) continue
+                if (!id || !wanted.has(id)) continue
+                // A refund always wins: their wallet history logs it as its own
+                // "Order Refund" row, possibly with status "completed" (the refund
+                // went through), next to an order row that may still read completed.
+                if (isBundlePortalRefundRow(row)) {
+                    statuses.set(id, { status: 'failed', raw: 'refunded' })
+                    continue
+                }
+                if (statuses.has(id)) continue
                 const raw = String(row?.status ?? '')
                 statuses.set(id, { status: mapBundlePortalStatus(raw), raw })
             }
@@ -502,6 +510,16 @@ export async function fetchRecentOrderStatuses(opts: {
     const oldestSeenAt = Number.isFinite(oldestSeenMs) ? new Date(oldestSeenMs).toISOString() : null
     console.log(`[BundlePortal] Status scan: ${statuses.size}/${wanted.size} found, ${pagesRead} page(s), stop=${stopReason}, reached back to ${oldestSeenAt ?? 'n/a'}`)
     return result(stopReason, pagesRead, oldestSeenAt)
+}
+
+/**
+ * True for a get_transactions row that records BundlePortal giving the money
+ * back (status "refunded"/"reversed", or a refund-typed ledger row). The row
+ * shape is not documented, so every likely type/description field is checked.
+ */
+export function isBundlePortalRefundRow(row: any): boolean {
+    const fields = [row?.status, row?.type, row?.transaction_type, row?.category, row?.kind, row?.event, row?.description, row?.title]
+    return fields.some(v => typeof v === 'string' && /refund|revers/i.test(v))
 }
 
 /**

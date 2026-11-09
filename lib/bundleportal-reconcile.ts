@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase'
 import { fetchRecentOrderStatuses } from '@/lib/bundleportal-service'
+import { syncShopOrderStatus } from '@/lib/shop-service'
 
 // BundlePortal reconciliation — the SAFETY NET behind app/api/webhooks/bundleportal.
 // BundlePortal NEVER retries a webhook (5s timeout, one attempt), so any delivery
@@ -17,6 +18,10 @@ import { fetchRecentOrderStatuses } from '@/lib/bundleportal-service'
 //   completed/delivered            → completed : update order to completed
 //   failed/cancelled/refunded      → failed    : update order to failed (admin refunds by hand)
 //   processing/cached              → processing: do nothing, re-check next run
+// Plus: orders WE already marked completed in the last REFUND_WINDOW_MS are
+// re-checked, and any BundlePortal has since REFUNDED are flipped completed →
+// failed (guarded by .eq('status','completed')) and listed in `refunded` so the
+// cron can tell an admin to refund the customer.
 // Every write is guarded by .eq('status','processing'), so overlapping runs (or a
 // run racing the webhook) are no-ops.
 
@@ -29,8 +34,14 @@ export interface BundlePortalReconcileResult {
     // A label here that mapBundlePortalStatus doesn't recognise means those
     // orders are stuck.
     supplierLabels: Record<string, number>
+    // Orders BundlePortal refunded that we just marked failed (from processing
+    // OR completed) — the customer was charged and needs refunding by hand.
+    refunded: { id: string; phone: string | null; size: string | null; was: string }[]
     errors: string[]
 }
+
+const REFUND_WINDOW_MS = 24 * 60 * 60_000
+const isRefundLabel = (raw: string | undefined) => /refund|revers/i.test(raw || '')
 
 export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; scanBudgetMs?: number } = {}): Promise<BundlePortalReconcileResult> {
     const startedAt = Date.now()
@@ -42,6 +53,7 @@ export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; 
     let totalUpdated = 0
     let totalFailed = 0
     const errors: string[] = []
+    const refunded: BundlePortalReconcileResult['refunded'] = []
 
     const supplierLabelCounts: Record<string, number> = {}
     const noteSupplierLabel = (raw: string | undefined) => {
@@ -70,7 +82,7 @@ export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; 
     try {
         const { data, error } = await (supabase
             .from('orders') as any)
-            .select('id, shop_order_id, status, created_at')
+            .select('id, shop_order_id, status, created_at, phone_number, size')
             .eq('fulfillment_method', 'bundleportal')
             .eq('status', 'processing')
             .order('created_at', { ascending: true })
@@ -81,14 +93,35 @@ export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; 
         errors.push(`orders query exception: ${err.message}`)
     }
 
+    // Recently completed BundlePortal orders, re-checked for a later refund.
+    // Storefront orders are covered too: their orders row carries shop_order_id.
+    let completedOrders: any[] = []
+    const refundWindowStart = new Date(Date.now() - REFUND_WINDOW_MS).toISOString()
+    try {
+        const { data, error } = await (supabase
+            .from('orders') as any)
+            .select('id, shop_order_id, status, created_at, phone_number, size')
+            .eq('fulfillment_method', 'bundleportal')
+            .eq('status', 'completed')
+            .gte('created_at', refundWindowStart)
+            .order('created_at', { ascending: false })
+            .limit(1000)
+        if (error) errors.push(`completed orders query failed: ${error.message}`)
+        else completedOrders = data || []
+    } catch (err: any) {
+        errors.push(`completed orders query exception: ${err.message}`)
+    }
+
     const wantedOrderIds = Array.from(new Set([
         ...shopOrders.map(o => String(o.id)),
         ...mainOrders.map(o => String(o.id)),
         ...mainOrders.filter(o => o.shop_order_id).map(o => String(o.shop_order_id)),
+        ...completedOrders.map(o => String(o.id)),
+        ...completedOrders.filter(o => o.shop_order_id).map(o => String(o.shop_order_id)),
     ]))
 
     if (wantedOrderIds.length === 0) {
-        return { success: true, checked: 0, updated: 0, failed: 0, supplierLabels: {}, errors }
+        return { success: true, checked: 0, updated: 0, failed: 0, supplierLabels: {}, refunded, errors }
     }
 
     // ── One batched read of the supplier's history ────────────────────────────
@@ -98,6 +131,8 @@ export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; 
     const createdTimes = [...shopOrders, ...mainOrders]
         .map(o => Date.parse(String(o.created_at ?? '')))
         .filter(Number.isFinite)
+    // The refund re-check needs its whole window read, so it sets the floor too.
+    if (completedOrders.length > 0) createdTimes.push(Date.parse(refundWindowStart))
     const scanBackTo = createdTimes.length > 0
         ? new Date(Math.min(...createdTimes) - 15 * 60_000).toISOString()
         : undefined
@@ -195,6 +230,9 @@ export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; 
                 } else {
                     console.log(`[BundlePortalSync] ${table} ${order.id}: processing → ${newStatus}${newStatus === 'failed' ? ' (manual refund required)' : ''}`)
                     totalUpdated++
+                    if (table === 'orders' && newStatus === 'failed' && isRefundLabel(hit.raw)) {
+                        refunded.push({ id: order.id, phone: order.phone_number ?? null, size: order.size ?? null, was: 'processing' })
+                    }
                 }
             } catch (orderErr: any) {
                 errors.push(`${table} exception for ${order.id}: ${orderErr.message}`)
@@ -215,8 +253,48 @@ export async function reconcileBundlePortalOrders(opts: { runBudgetMs?: number; 
         errors.push(`Part B failed: ${partBErr.message}`)
     }
 
+    // ── Completed orders BundlePortal has since refunded → failed ─────────────
+    for (const order of completedOrders) {
+        if (outOfTime()) {
+            errors.push('refund re-check: run budget exhausted — remaining orders deferred to next run')
+            break
+        }
+        const hit = lookup(order)
+        if (!hit || hit.status !== 'failed' || !isRefundLabel(hit.raw)) continue
+        totalChecked++
+        try {
+            const now = new Date().toISOString()
+            const { data: flipped, error: updErr } = await (supabase.from('orders') as any)
+                .update({ status: 'failed', supplier_status: null, updated_at: now })
+                .eq('id', order.id)
+                .eq('status', 'completed')
+                .select('id')
+            if (updErr) {
+                errors.push(`orders refund flip failed for ${order.id}: ${updErr.message}`)
+                totalFailed++
+                continue
+            }
+            if (!flipped || flipped.length === 0) continue
+            if (order.shop_order_id) {
+                await (supabase.from('shop_orders') as any)
+                    .update({ status: 'failed', updated_at: now })
+                    .eq('id', order.shop_order_id)
+                    .eq('status', 'completed')
+                await syncShopOrderStatus(order.id, 'failed').catch(err =>
+                    console.error(`[BundlePortalSync] syncShopOrderStatus failed for ${order.id}:`, err))
+            }
+            console.log(`[BundlePortalSync] orders ${order.id}: completed → failed (BundlePortal REFUNDED it — manual refund required)`)
+            totalUpdated++
+            refunded.push({ id: order.id, phone: order.phone_number ?? null, size: order.size ?? null, was: 'completed' })
+        } catch (err: any) {
+            errors.push(`orders refund flip exception for ${order.id}: ${err.message}`)
+            totalFailed++
+        }
+    }
+
     return {
         success: true,
+        refunded,
         checked: totalChecked,
         updated: totalUpdated,
         failed: totalFailed,

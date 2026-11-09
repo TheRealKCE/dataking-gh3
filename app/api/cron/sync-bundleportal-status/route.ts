@@ -28,6 +28,17 @@ export async function GET(request: NextRequest) {
 
     const result = await reconcileBundlePortalOrders()
 
+    if (result.refunded.length > 0) {
+        const first = result.refunded[0]
+        const more = result.refunded.length > 1 ? ` (+${result.refunded.length - 1} more)` : ''
+        await sendPushToAdmins({
+            title: `BundlePortal refunded ${result.refunded.length} order${result.refunded.length > 1 ? 's' : ''}`,
+            body: `Marked failed — refund the customer: ${first.size ?? ''} ${first.phone ?? first.id}${more}`,
+            url: '/admin/orders',
+            tag: 'bundleportal-refunded',
+        }).catch(() => {})
+    }
+
     if (result.errors.length > 0) {
         await sendPushToAdmins({
             title: 'BundlePortal sync failing',
