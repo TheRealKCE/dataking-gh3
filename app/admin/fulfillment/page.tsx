@@ -804,6 +804,10 @@ export default function FulfillmentPage() {
                 if (Array.isArray(result.errors) && result.errors.length > 0) {
                     toast.error(`Kuntanii sync: ${result.errors[0]}`, { duration: 10000 })
                 }
+                if (Array.isArray(result.unknownOrderIds) && result.unknownOrderIds.length > 0) {
+                    const ids = result.unknownOrderIds.slice(0, 10).map((id: string) => id.slice(0, 8)).join(', ')
+                    toast.warning(`${result.unknownOrderIds.length} order(s) Kuntanii has no record of: ${ids}${result.unknownOrderIds.length > 10 ? '…' : ''}`, { duration: 20000 })
+                }
                 await fetchOrders(true)
             }
         } catch (err: any) {

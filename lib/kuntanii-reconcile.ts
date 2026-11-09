@@ -77,6 +77,8 @@ export interface KuntaniiReconcileResult {
     updated: number
     failed: number
     notFound: number
+    /** Our order ids Kuntanii has no record of. Not an error (no push) — shown on the Sync button. */
+    unknownOrderIds: string[]
     supplierLabels: Record<string, number>
     errors: string[]
 }
@@ -91,6 +93,7 @@ export async function reconcileKuntaniiOrders(opts: { runBudgetMs?: number } = {
     const errors: string[] = []
     const labels: Record<string, number> = {}
     let checked = 0, updated = 0, failed = 0, notFound = 0
+    const unknownOrderIds: string[] = []
 
     // ── Backlog, oldest first ─────────────────────────────────────────────────
     // If migration 20261108000000 hasn't run, kuntanii_reference doesn't exist and
@@ -180,7 +183,7 @@ export async function reconcileKuntaniiOrders(opts: { runBudgetMs?: number } = {
             }
             if (!hit) {
                 if (lastErr) errors.push(`status check failed for ${item.orderId || item.shopOrderId}: ${lastErr}`)
-                else notFound++
+                else { notFound++; unknownOrderIds.push(String(item.orderId || item.shopOrderId)) }
                 continue
             }
             checked++
@@ -195,9 +198,7 @@ export async function reconcileKuntaniiOrders(opts: { runBudgetMs?: number } = {
     }
     await Promise.all(Array.from({ length: CONCURRENCY }, worker))
 
-    if (notFound > 0) {
-        errors.unshift(`${notFound} Kuntanii order(s) are unknown at Kuntanii — check them on the Kuntanii dashboard`)
-    }
-
-    return { success: true, checked, updated, failed, notFound, supplierLabels: labels, errors }
+    // Unknown-at-Kuntanii orders are NOT pushed to errors: the cron pushes every
+    // error to admins' phones every 10 minutes, and these don't change run to run.
+    return { success: true, checked, updated, failed, notFound, unknownOrderIds, supplierLabels: labels, errors }
 }
