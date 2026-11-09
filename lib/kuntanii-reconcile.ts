@@ -83,8 +83,13 @@ export interface KuntaniiReconcileResult {
     errors: string[]
 }
 
-const BATCH = 40
-const CONCURRENCY = 5
+// Kuntanii's queue runs thousands deep, so many orders can sit in processing at
+// once. The backlog is read oldest first: with a small batch, orders that never
+// settle would fill it every run and newer ones would never be checked. One
+// lookup is ~0.3–0.7s, so 150 at 8 in parallel fits well inside the run budget;
+// anything past the budget is deferred to the next run.
+const BATCH = 150
+const CONCURRENCY = 8
 
 export async function reconcileKuntaniiOrders(opts: { runBudgetMs?: number } = {}): Promise<KuntaniiReconcileResult> {
     const startedAt = Date.now()

@@ -30,6 +30,12 @@ import { normaliseSupplierStatus } from '@/lib/order-status-display'
 //   • No balance endpoint is documented.
 
 const KUNTANII_API_KEY = process.env.KUNTANII_API_KEY || ''
+// Kuntanii scopes an order to the API key that placed it: after a key change, the
+// new key gets 404 for every order the old one placed. Older keys listed here
+// (comma-separated) are tried for STATUS lookups only, never to place orders.
+// Keep a key here until its last order has settled, and revoke it at Kuntanii only then.
+const KUNTANII_PREVIOUS_API_KEYS = (process.env.KUNTANII_PREVIOUS_API_KEYS || '')
+    .split(',').map(k => k.trim()).filter(k => k && k !== KUNTANII_API_KEY)
 const KUNTANII_API_URL = (process.env.KUNTANII_API_URL || 'https://kuntanii.com').replace(/\/+$/, '')
 
 const MAX_RETRY_SUFFIX = 5
@@ -127,10 +133,10 @@ export function uuidFromExternalId(externalOrderId: string | null | undefined): 
     return m ? m[0].toLowerCase() : null
 }
 
-async function callApi(method: 'GET' | 'POST', path: string, opts: { body?: any; idempotencyKey?: string; timeoutMs: number }) {
+async function callApi(method: 'GET' | 'POST', path: string, opts: { body?: any; idempotencyKey?: string; timeoutMs: number; apiKey?: string }) {
     const headers: Record<string, string> = {
         Accept: 'application/json',
-        Authorization: `Bearer ${KUNTANII_API_KEY}`,
+        Authorization: `Bearer ${opts.apiKey || KUNTANII_API_KEY}`,
     }
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
     if (opts.idempotencyKey) headers['X-Kuntanii-Idempotency-Key'] = opts.idempotencyKey
@@ -372,7 +378,14 @@ export function overallStatus(data: any): { status: MappedStatus; raw: string } 
 export async function checkOrderStatus(externalOrderId: string): Promise<StatusResponse> {
     if (!KUNTANII_API_KEY) return { success: false, status: 'pending', message: 'API key not configured' }
     try {
-        const { status, ok, data, rawText } = await callApi('GET', `/api/integrations/orders/${encodeURIComponent(externalOrderId)}`, { timeoutMs: 10_000 })
+        const path = `/api/integrations/orders/${encodeURIComponent(externalOrderId)}`
+        let res = await callApi('GET', path, { timeoutMs: 10_000 })
+        // Not under the current key — it may have been placed with a previous one.
+        for (const apiKey of KUNTANII_PREVIOUS_API_KEYS) {
+            if (res.status !== 404) break
+            res = await callApi('GET', path, { timeoutMs: 10_000, apiKey })
+        }
+        const { status, ok, data, rawText } = res
         if (status === 404) return { success: false, status: 'pending', notFound: true, message: 'Not found' }
         if (!ok || data === null) {
             return { success: false, status: 'pending', message: data?.message || `HTTP ${status}: ${rawText.slice(0, 120)}` }

@@ -32,7 +32,7 @@ const originalLoad = (Module as any)._load
 
 let pushes = 0
 const LIVE = process.env.LIVE === '1'
-if (!LIVE) process.env.KUNTANII_API_KEY = 'kt_live_test'
+if (!LIVE) { process.env.KUNTANII_API_KEY = 'kt_live_test'; process.env.KUNTANII_PREVIOUS_API_KEYS = 'kt_live_old' }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const kt = require('../lib/kuntanii-service') as typeof import('../lib/kuntanii-service')
@@ -47,7 +47,7 @@ function check(name: string, cond: boolean, detail?: unknown) {
 }
 
 // ── fetch stub ───────────────────────────────────────────────────────────────
-type Call = { method: string; url: string; body?: any; key?: string | null }
+type Call = { method: string; url: string; body?: any; key?: string | null; auth?: string }
 let calls: Call[] = []
 let router: (c: Call) => { status: number; body: any } | 'throw' = () => ({ status: 500, body: {} })
 const realFetch = globalThis.fetch
@@ -57,6 +57,7 @@ function stubFetch() {
             method: init?.method || 'GET', url: String(url),
             body: init?.body ? JSON.parse(init.body) : undefined,
             key: init?.headers?.['X-Kuntanii-Idempotency-Key'] ?? null,
+            auth: init?.headers?.Authorization,
         }
         calls.push(c)
         const r = router(c)
@@ -185,6 +186,27 @@ async function offline() {
             : accepted(c.body.externalOrderId)
         const r = await kt.fulfillOrder('MTN', '0241234567', '1GB', ID)
         check('cancelled replay on POST → re-placed under -r1', r.success && r.transactionId === `${ID}-r1` && calls.length === 2, { r, calls })
+    }
+    {
+        // Key change: orders placed with the previous key are 404 under the new one.
+        calls = []
+        router = c => c.auth === 'Bearer kt_live_old'
+            ? { status: 200, body: { externalOrderId: ID, orders: [{ status: 'processed' }] } }
+            : { status: 404, body: { code: 'NOT_FOUND' } }
+        const st = await kt.checkOrderStatus(ID)
+        check('status: 404 on current key → found with previous key', st.success && st.status === 'completed' && calls.length === 2 && calls[0].auth === 'Bearer kt_live_test', { st, calls })
+        calls = []
+        router = () => ({ status: 404, body: { code: 'NOT_FOUND' } })
+        const nf = await kt.checkOrderStatus(ID)
+        check('status: 404 on every key → notFound', !nf.success && nf.notFound === true && calls.length === 2, { nf, calls })
+        calls = []
+        router = () => ({ status: 200, body: { externalOrderId: ID, orders: [{ status: 'processing' }] } })
+        await kt.checkOrderStatus(ID)
+        check('status: found on current key → previous keys not tried', calls.length === 1)
+        calls = []
+        router = c => c.method === 'POST' ? accepted(c.body.externalOrderId) : { status: 404, body: {} }
+        await kt.fulfillOrder('MTN', '0241234567', '1GB', ID)
+        check('orders are placed with the current key only', calls.every(c => c.auth === 'Bearer kt_live_test'), calls)
     }
     ;(globalThis as any).fetch = realFetch
 
